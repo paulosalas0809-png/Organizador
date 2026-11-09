@@ -24,7 +24,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import cargar_config
 from .google_api import SCOPES, Google, Tarea, huecos_libres
-from .planificador import DIAS, construir_contexto, conversar, generar_plan
+from .planificador import DIAS, construir_contexto, conversar, generar_plan, plan_sin_ia
 
 EN_SERVIDOR = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("EN_SERVIDOR"))
 if not EN_SERVIDOR:
@@ -286,16 +286,17 @@ def api_hoy():
 @app.post("/api/plan")
 @requiere_login
 def api_plan():
-    if not ia_disponible():
-        return jsonify(error="Falta configurar la clave de Claude (ANTHROPIC_API_KEY)."), 400
     nota = (request.json or {}).get("nota", "")[:500]
     momento = ahora()
     dia = momento.date()
     g = google()
     eventos, tareas = datos_del_dia(g, dia)
     huecos = huecos_libres(eventos, dia, cfg, desde=momento)
-    contexto = construir_contexto(dia, momento, eventos, tareas, huecos, cfg, nota)
-    plan = generar_plan(contexto).model_dump()
+    if ia_disponible():
+        contexto = construir_contexto(dia, momento, eventos, tareas, huecos, cfg, nota)
+        plan = generar_plan(contexto).model_dump()
+    else:
+        plan = plan_sin_ia(dia, eventos, tareas, huecos).model_dump()
     for b in plan["bloques"]:
         n = b.get("tarea_numero")
         if n and 1 <= n <= len(tareas):

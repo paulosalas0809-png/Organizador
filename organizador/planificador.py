@@ -162,3 +162,109 @@ def conversar(contexto: str, historial: list[dict]) -> str:
         return "Lo siento, no puedo ayudarte con eso. ¿Probamos con otra pregunta?"
     texto = "".join(b.text for b in respuesta.content if b.type == "text").strip()
     return texto or "No tengo una respuesta ahora mismo, intenta de nuevo."
+
+
+# ---------------------------------------------------------------- modo gratis (sin IA)
+
+CONSEJOS = [
+    "Empieza por la tarea que más te pesa: después todo se siente más liviano.",
+    "Deja el celular lejos durante los bloques de enfoque.",
+    "Si una tarea te da flojera, comprométete solo a 5 minutos.",
+    "Termina una cosa antes de empezar otra.",
+    "Toma agua y estírate en cada pausa.",
+    "Hecho es mejor que perfecto.",
+    "Revisa tu plan a mediodía y ajústalo sin culpa.",
+]
+
+
+def plan_sin_ia(
+    dia: date,
+    eventos: list[Evento],
+    tareas: list[Tarea],
+    huecos: list[tuple[datetime, datetime]],
+) -> PlanDelDia:
+    """Arma un plan con reglas simples: urgente primero, bloques de 45 min con pausas."""
+    from datetime import timedelta
+
+    def urgencia(t: Tarea):
+        if t.vence is None:
+            return (2, date.max)
+        if t.vence <= dia:
+            return (0, t.vence)
+        return (1, t.vence)
+
+    pendientes = sorted(range(len(tareas)), key=lambda i: urgencia(tareas[i]))
+    bloques: list[dict] = []
+    trabajo = timedelta(minutes=45)
+    pausa = timedelta(minutes=10)
+    hechos_seguidos = 0
+
+    for a, b in huecos:
+        cursor = a
+        while pendientes:
+            # Almuerzo de 13:00 a 14:00 si el hueco lo cruza
+            almuerzo = datetime.combine(dia, datetime.min.time(), a.tzinfo).replace(hour=13)
+            if cursor <= almuerzo < b and cursor + trabajo > almuerzo:
+                if almuerzo - cursor >= timedelta(minutes=25):
+                    i = pendientes.pop(0)
+                    bloques.append(dict(inicio=cursor, fin=almuerzo, titulo=tareas[i].titulo, tipo="tarea", tarea_numero=i + 1))
+                fin_alm = min(almuerzo + timedelta(hours=1), b)
+                bloques.append(dict(inicio=almuerzo, fin=fin_alm, titulo="Almuerzo", tipo="descanso"))
+                cursor, hechos_seguidos = fin_alm, 0
+                continue
+            if b - cursor < timedelta(minutes=25):
+                break
+            fin = min(cursor + trabajo, b)
+            i = pendientes.pop(0)
+            t = tareas[i]
+            nota = "¡Está vencida, sácala de encima!" if t.vence and t.vence < dia else (
+                "Vence hoy." if t.vence == dia else "")
+            bloques.append(dict(inicio=cursor, fin=fin, titulo=t.titulo, tipo="tarea", tarea_numero=i + 1, nota=nota))
+            cursor = fin
+            hechos_seguidos += 1
+            if hechos_seguidos >= 2 and b - cursor >= pausa + timedelta(minutes=25):
+                bloques.append(dict(inicio=cursor, fin=cursor + pausa, titulo="Pausa", tipo="descanso",
+                                    nota="Agua, estirarte, mirar lejos."))
+                cursor += pausa
+                hechos_seguidos = 0
+
+    for e in eventos:
+        if not e.todo_el_dia and not e.creado_por_organizador:
+            bloques.append(dict(inicio=e.inicio, fin=e.fin, titulo=e.titulo, tipo="evento"))
+    bloques.sort(key=lambda x: x["inicio"])
+
+    urgentes = sum(1 for t in tareas if t.vence and t.vence <= dia)
+    n_eventos = sum(1 for e in eventos if not e.creado_por_organizador)
+    planeadas = [b for b in bloques if b["tipo"] == "tarea"]
+    if not tareas:
+        resumen = "No tienes tareas pendientes. ¡Aprovecha para adelantar algo o descansar!"
+    else:
+        resumen = (
+            f"Hoy tienes {n_eventos} evento(s) y {urgentes} tarea(s) urgente(s). "
+            f"Acomodé {len(planeadas)} tarea(s) en tus horas libres, empezando por lo más urgente."
+        )
+    vistas, prioridades = set(), []
+    for b in planeadas:
+        if b["titulo"] not in vistas:
+            vistas.add(b["titulo"])
+            prioridades.append(b["titulo"])
+        if len(prioridades) == 3:
+            break
+
+    return PlanDelDia(
+        resumen=resumen,
+        prioridades=prioridades or ["Disfrutar tu día"],
+        bloques=[
+            Bloque(
+                inicio=b["inicio"].strftime("%H:%M"),
+                fin=b["fin"].strftime("%H:%M"),
+                titulo=b["titulo"],
+                tipo=b["tipo"],
+                tarea_numero=b.get("tarea_numero"),
+                nota=b.get("nota", ""),
+            )
+            for b in bloques
+        ],
+        tareas_para_otro_dia=[i + 1 for i in pendientes],
+        consejo=CONSEJOS[dia.toordinal() % len(CONSEJOS)],
+    )

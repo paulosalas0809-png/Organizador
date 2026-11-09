@@ -66,6 +66,7 @@ async function cargar() {
   $("#conectar").hidden = true;
   $("#contenido").hidden = false;
   pintarTodo();
+  pintarChat();
 }
 
 function mostrarConectar() {
@@ -103,17 +104,12 @@ function pintarProgreso() {
 function pintarPlan() {
   const caja = $("#plan");
   const plan = datos.plan;
-  if (!datos.ia) {
-    caja.innerHTML = `<div class="plan-vacio"><div class="big">🤖</div>
-      <p>Para que tu asistente arme el plan falta configurar la clave de Claude.</p></div>`;
-    return;
-  }
   const formulario = `
-    <textarea class="nota-input" id="nota" rows="2" placeholder="Indicaciones opcionales: “hoy salgo a las 6”, “estoy con poca energía”…"></textarea>
+    ${datos.ia ? '<textarea class="nota-input" id="nota" rows="2" placeholder="Indicaciones opcionales: “hoy salgo a las 6”, “estoy con poca energía”…"></textarea>' : '<div style="height:10px"></div>'}
     <button class="btn block" id="btn-plan">✨ ${plan ? "Rehacer mi plan" : "Generar mi plan"}</button>`;
   if (!plan) {
     caja.innerHTML = `<div class="plan-vacio"><div class="big">🌱</div>
-      <p>Tu asistente revisará tu agenda y tus tareas para armar un día realista.</p></div>${formulario}`;
+      <p>${datos.ia ? "Tu asistente revisará tu agenda y tus tareas para armar un día realista." : "Ordeno tus tareas por urgencia y las acomodo en tus horas libres, con pausas."}</p></div>${formulario}`;
     $("#btn-plan").onclick = generarPlan;
     $("#plan-hora").textContent = "";
     return;
@@ -329,6 +325,12 @@ function enfocar(t) {
 
 function pintarChat() {
   const caja = $("#mensajes");
+  if (datos && !datos.ia) {
+    caja.innerHTML = '<div class="msg assistant">💬 El chat con Claude necesita una clave de la API de Claude (es de pago y aparte de la suscripción Pro). Todo lo demás de la app funciona gratis. 😊</div>';
+    $("#form-chat").style.display = "none";
+    $("#sugerencias").style.display = "none";
+    return;
+  }
   caja.innerHTML = '<div class="msg assistant">¡Hola! Conozco tu agenda y tus tareas de hoy. ¿En qué te ayudo?</div>' +
     chat.map((m) => `<div class="msg ${m.role}">${esc(m.content)}</div>`).join("");
   caja.scrollTop = caja.scrollHeight;
