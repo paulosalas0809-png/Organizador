@@ -76,7 +76,29 @@ function mostrarConectar() {
   $("#conectar").hidden = false;
 }
 
+// ---------------------------------------------------------------- próximos pendientes
+
+let proxTodos = false;
+const DSEM = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+function pintarProximos() {
+  const lista = datos.proximos || [];
+  const ver = proxTodos ? lista : lista.slice(0, 6);
+  $("#proximos").innerHTML = ver.length ? ver.map((e) => {
+    const f = new Date(e.fecha + "T12:00:00");
+    const clase = e.dias <= 3 ? "pronto" : e.dias <= 7 ? "semana" : "luego";
+    const cuando = e.dias === 1 ? "mañana" : `en ${e.dias} días`;
+    return `<div class="prox-item">
+      <div class="prox-fecha"><small>${DSEM[f.getDay()]}</small><b>${f.getDate()}</b></div>
+      <div class="pt"><div>${esc(e.titulo)}</div><small>${e.hora ? esc(e.hora) + " · " : ""}${esc(e.calendario)}</small></div>
+      <span class="cuenta ${clase}">${cuando}</span></div>`;
+  }).join("") + (lista.length > 6 ? `<button class="ver-mas" id="prox-mas">${proxTodos ? "Ver menos" : `Ver todos (${lista.length})`}</button>` : "")
+    : '<p style="color:var(--muted);margin:0">Nada en los próximos 30 días. 🌴</p>';
+  const mas = $("#prox-mas");
+  if (mas) mas.onclick = () => { proxTodos = !proxTodos; pintarProximos(); };
+}
+
 function pintarTodo() {
+  pintarProximos();
   pintarMetas();
   pintarProgreso();
   pintarPlan();
@@ -177,7 +199,7 @@ function pintarAgenda() {
   const ev = datos.eventos;
   $("#agenda").innerHTML = ev.length
     ? ev.map((e) => `<div class="evento-item"><div class="h">${e.todo_el_dia ? "Todo el día" : esc(e.inicio) + " – " + esc(e.fin)}</div>
-        <div>${esc(e.titulo)}</div></div>`).join("")
+        <div>${esc(e.titulo)}${e.calendario ? ` <small style="color:var(--muted)">· ${esc(e.calendario)}</small>` : ""}</div></div>`).join("")
     : '<p style="color:var(--muted);margin:0">No tienes eventos hoy. ¡Día libre para avanzar! 🚀</p>';
 }
 
@@ -398,22 +420,31 @@ function pintarChat() {
   }
   $("#agente-modo").textContent = datos && datos.agente ? "agente con IA" : "asistente";
   caja.innerHTML = `<div class="msg assistant">${esc(BIENVENIDA)}</div>` + chat.map((m) => `
-    <div class="msg ${m.role}">${esc(m.content)}${m.acciones && m.acciones.length
+    <div class="msg ${m.role}">${m.foto ? "📷 " : ""}${esc(m.content)}${m.acciones && m.acciones.length
       ? `<div class="acciones">${m.acciones.map((a) => `<span class="accion">${esc(a)}</span>`).join("")}</div>` : ""}</div>`).join("");
   caja.scrollTop = caja.scrollHeight;
 }
 
+let imagenAdjunta = null;
+
 async function enviarChat(texto) {
+  if (!texto.trim() && imagenAdjunta) texto = "Te envío esta imagen. Revísala y ayúdame a organizar lo que aparece.";
   if (!texto.trim()) return;
   if (datos && !datos.ia) { toast("Falta la clave de Gemini"); return; }
-  chat.push({ role: "user", content: texto.trim() });
+  const imagen = imagenAdjunta;
+  quitarAdjunto();
+  chat.push({ role: "user", content: texto.trim(), foto: imagen ? true : undefined });
   pintarChat();
+  if (imagen) {
+    const ultimo = $("#mensajes").lastElementChild;
+    ultimo.insertAdjacentHTML("afterbegin", `<img class="foto" src="${imagen}" alt="">`);
+  }
   const caja = $("#mensajes");
   caja.insertAdjacentHTML("beforeend", '<div class="msg assistant"><span class="spinner"></span> Orga está pensando…</div>');
   caja.scrollTop = caja.scrollHeight;
   try {
     const historial = chat.map(({ role, content }) => ({ role, content }));
-    const r = await api("/api/chat", { historial });
+    const r = await api("/api/chat", { historial, imagen });
     chat.push({ role: "assistant", content: r.respuesta, acciones: r.acciones || [] });
     hablar(r.respuesta);
     if (r.acciones && r.acciones.length) cargar(true);
@@ -438,6 +469,35 @@ $("#acciones-rapidas").addEventListener("click", (e) => {
 $("#btn-chat-nuevo").onclick = () => {
   chat = []; guardar("chat-" + hoyClave(), chat); pintarChat();
 };
+
+// ---------------------------------------------------------------- fotos para el agente
+
+function quitarAdjunto() {
+  imagenAdjunta = null;
+  $("#adjunto").hidden = true;
+  $("#input-foto").value = "";
+}
+$("#adjunto-quitar").onclick = quitarAdjunto;
+$("#btn-foto").onclick = () => $("#input-foto").click();
+$("#input-foto").addEventListener("change", (e) => {
+  const archivo = e.target.files[0];
+  if (!archivo) return;
+  const img = new Image();
+  img.onload = () => {
+    // Achicar la foto para que viaje rápido (máx. 1600 px)
+    const escala = Math.min(1, 1600 / Math.max(img.width, img.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.width * escala); c.height = Math.round(img.height * escala);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    imagenAdjunta = c.toDataURL("image/jpeg", 0.85);
+    $("#adjunto-img").src = imagenAdjunta;
+    $("#adjunto").hidden = false;
+    URL.revokeObjectURL(img.src);
+    $("#chat-input").focus();
+  };
+  img.onerror = () => toast("No pude abrir esa imagen");
+  img.src = URL.createObjectURL(archivo);
+});
 
 // ---------------------------------------------------------------- voz
 

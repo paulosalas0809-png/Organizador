@@ -287,6 +287,33 @@ header.top {
 .mic.escuchando { background: var(--warn); color: #fff; border-color: var(--warn); animation: latido 1s infinite; }
 @keyframes latido { 50% { transform: scale(1.08); } }
 
+.adjunto {
+  display: flex; align-items: center; gap: 10px; background: var(--bg); border-radius: 12px; padding: 6px 8px;
+  font-size: 13px; color: var(--muted);
+}
+.adjunto[hidden] { display: none; }
+.adjunto img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; }
+.adjunto span { flex: 1; }
+.chat form { gap: 6px; }
+.chat form .icon-btn { flex: none; }
+.msg img.foto { display: block; max-width: 180px; border-radius: 10px; margin-bottom: 6px; }
+
+/* ---------- próximos ---------- */
+.prox-item { display: flex; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.prox-item:last-child { border: 0; }
+.prox-fecha {
+  width: 46px; flex: none; text-align: center; background: var(--bg); border-radius: 10px; padding: 4px 0; line-height: 1.1;
+}
+.prox-fecha b { display: block; font-size: 17px; }
+.prox-fecha small { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+.prox-item .pt { flex: 1; min-width: 0; }
+.prox-item .pt small { color: var(--muted); font-size: 12px; }
+.cuenta { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.cuenta.pronto { background: var(--warn-soft); color: var(--warn); }
+.cuenta.semana { background: var(--accent-soft); color: var(--accent); }
+.cuenta.luego { background: var(--bg); color: var(--muted); }
+.ver-mas { background: none; border: 0; color: var(--accent); font-weight: 600; padding: 8px 0 0; font-size: 14px; }
+
 /* ---------- metas ---------- */
 .meta-item {
   display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: 14px; background: var(--bg);

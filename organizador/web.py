@@ -59,6 +59,7 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=EN_SERVIDOR,
+    MAX_CONTENT_LENGTH=12 * 1024 * 1024,  # imágenes para el agente
 )
 
 
@@ -277,9 +278,21 @@ def api_hoy():
                 "fin": e.fin.strftime("%H:%M"),
                 "todo_el_dia": e.todo_el_dia,
                 "organizador": e.creado_por_organizador,
+                "calendario": e.calendario,
             }
             for e in eventos
         ],
+        proximos=[
+            {
+                "titulo": e.titulo,
+                "fecha": e.inicio.date().isoformat(),
+                "hora": "" if e.todo_el_dia else e.inicio.strftime("%H:%M"),
+                "dias": (e.inicio.date() - dia).days,
+                "calendario": e.calendario,
+            }
+            for e in g.eventos_entre(dia + timedelta(days=1), dia + timedelta(days=31))
+            if not e.creado_por_organizador
+        ][:40],
         tareas=[
             {
                 "id": t.id,
@@ -398,7 +411,15 @@ def api_chat():
     g = google()
     if gemini_disponible():
         agente = Agente(g, cfg, metas, momento)
-        texto = agente.conversar(historial)
+        imagen, mime = None, "image/jpeg"
+        datos_img = (request.json or {}).get("imagen")
+        if datos_img:
+            import base64
+            cabecera, _, b64 = datos_img.partition(",")
+            if cabecera.startswith("data:image/"):
+                mime = cabecera[5:].split(";")[0]
+            imagen = base64.b64decode(b64 or cabecera)
+        texto = agente.conversar(historial, imagen, mime)
         return jsonify(respuesta=texto, acciones=agente.acciones)
     eventos, tareas = datos_del_dia(g, dia)
     huecos = huecos_libres(eventos, dia, cfg, desde=momento)

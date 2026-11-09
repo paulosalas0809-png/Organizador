@@ -70,6 +70,11 @@
           <p class="frase" id="frase"></p>
         </div>
 
+        <div class="card">
+          <h2>📌 Próximos pendientes <span class="sub">de todos tus calendarios</span></h2>
+          <div id="proximos"></div>
+        </div>
+
         <div class="card" id="card-plan">
           <h2>✨ Mi plan del día <span class="sub" id="plan-hora"></span></h2>
           <div id="plan"></div>
@@ -98,7 +103,14 @@
             <button class="rapida" data-p="Estoy sin ganas y me cuesta empezar. Ayúdame con algo pequeño y motívame.">💪<span>Motívame</span></button>
           </div>
           <div class="mensajes" id="mensajes"></div>
+          <div class="adjunto" id="adjunto" hidden>
+            <img id="adjunto-img" alt="Imagen adjunta">
+            <span>Imagen lista para enviar</span>
+            <button type="button" class="icon-btn" id="adjunto-quitar" title="Quitar">✕</button>
+          </div>
           <form id="form-chat">
+            <input type="file" id="input-foto" accept="image/*" hidden>
+            <button class="icon-btn" type="button" id="btn-foto" title="Enviar una foto">📎</button>
             <button class="icon-btn mic" type="button" id="btn-mic" title="Hablar">🎤</button>
             <input type="text" id="chat-input" placeholder="Escríbele o háblale a Orga…" maxlength="2000" autocomplete="off">
             <button class="btn" type="submit">➤</button>

@@ -31,6 +31,7 @@ class Evento:
     fin: datetime
     todo_el_dia: bool
     creado_por_organizador: bool
+    calendario: str = ""
 
 
 @dataclass
@@ -74,48 +75,76 @@ class Google:
 
     # ---------- Calendar ----------
 
-    def eventos_del_dia(self, dia: date) -> list[Evento]:
+    def calendarios(self) -> list[dict]:
+        """Todos los calendarios que tienes visibles (CLASES, ESTUDIO, Family, etc.)."""
+        if not hasattr(self, "_calendarios"):
+            items = self.calendar.calendarList().list(minAccessRole="reader").execute().get("items", [])
+            self._calendarios = [
+                {"id": c["id"], "nombre": c.get("summaryOverride") or c.get("summary", ""), "principal": c.get("primary", False)}
+                for c in items
+                if c.get("selected", True) and not c.get("hidden", False)
+            ]
+            if not any(c["id"] == self.cfg.calendario_id or (c["principal"] and self.cfg.calendario_id == "primary")
+                       for c in self._calendarios):
+                self._calendarios.append({"id": self.cfg.calendario_id, "nombre": "Principal", "principal": True})
+        return self._calendarios
+
+    def eventos_entre(self, desde: date, hasta: date) -> list[Evento]:
+        """Eventos de todos tus calendarios entre dos fechas (hasta no incluida)."""
         zona = self.cfg.zona
-        desde = datetime.combine(dia, time.min, zona)
-        hasta = desde + timedelta(days=1)
-        resp = (
-            self.calendar.events()
-            .list(
-                calendarId=self.cfg.calendario_id,
-                timeMin=desde.isoformat(),
-                timeMax=hasta.isoformat(),
-                singleEvents=True,
-                orderBy="startTime",
-            )
-            .execute()
-        )
-        eventos = []
-        for e in resp.get("items", []):
-            if e.get("status") == "cancelled":
-                continue
-            ini, fin = e["start"], e["end"]
-            todo_el_dia = "date" in ini
-            if todo_el_dia:
-                inicio = datetime.combine(date.fromisoformat(ini["date"]), time.min, zona)
-                final = datetime.combine(date.fromisoformat(fin["date"]), time.min, zona)
-            else:
-                inicio = datetime.fromisoformat(ini["dateTime"]).astimezone(zona)
-                final = datetime.fromisoformat(fin["dateTime"]).astimezone(zona)
-            privadas = e.get("extendedProperties", {}).get("private", {})
-            eventos.append(
-                Evento(
-                    id=e["id"],
-                    titulo=e.get("summary", "(sin título)"),
-                    inicio=inicio,
-                    fin=final,
-                    todo_el_dia=todo_el_dia,
-                    creado_por_organizador=privadas.get(ETIQUETA) == "1",
+        t_min = datetime.combine(desde, time.min, zona).isoformat()
+        t_max = datetime.combine(hasta, time.min, zona).isoformat()
+        eventos: list[Evento] = []
+        for cal in self.calendarios():
+            token = None
+            while True:
+                resp = (
+                    self.calendar.events()
+                    .list(calendarId=cal["id"], timeMin=t_min, timeMax=t_max, singleEvents=True,
+                          orderBy="startTime", maxResults=250, pageToken=token)
+                    .execute()
                 )
-            )
+                for e in resp.get("items", []):
+                    if e.get("status") == "cancelled":
+                        continue
+                    ini, fin = e["start"], e["end"]
+                    todo_el_dia = "date" in ini
+                    if todo_el_dia:
+                        inicio = datetime.combine(date.fromisoformat(ini["date"]), time.min, zona)
+                        final = datetime.combine(date.fromisoformat(fin["date"]), time.min, zona)
+                    else:
+                        inicio = datetime.fromisoformat(ini["dateTime"]).astimezone(zona)
+                        final = datetime.fromisoformat(fin["dateTime"]).astimezone(zona)
+                    privadas = e.get("extendedProperties", {}).get("private", {})
+                    es_principal = cal["principal"] or cal["id"] == self.cfg.calendario_id
+                    eventos.append(Evento(
+                        id=e["id"],
+                        titulo=e.get("summary", "(sin título)"),
+                        inicio=inicio,
+                        fin=final,
+                        todo_el_dia=todo_el_dia,
+                        creado_por_organizador=es_principal and privadas.get(ETIQUETA) == "1",
+                        calendario=cal["nombre"],
+                    ))
+                token = resp.get("nextPageToken")
+                if not token:
+                    break
+        eventos.sort(key=lambda e: (not e.todo_el_dia, e.inicio))
         return eventos
 
+    def eventos_del_dia(self, dia: date) -> list[Evento]:
+        return self.eventos_entre(dia, dia + timedelta(days=1))
+
     def eventos_rango(self, desde: date, dias: int) -> dict[date, list[Evento]]:
-        return {desde + timedelta(days=i): self.eventos_del_dia(desde + timedelta(days=i)) for i in range(dias)}
+        todos = self.eventos_entre(desde, desde + timedelta(days=dias))
+        zona = self.cfg.zona
+        por_dia: dict[date, list[Evento]] = {}
+        for i in range(dias):
+            d = desde + timedelta(days=i)
+            ini_d = datetime.combine(d, time.min, zona)
+            fin_d = ini_d + timedelta(days=1)
+            por_dia[d] = [e for e in todos if e.inicio < fin_d and e.fin > ini_d]
+        return por_dia
 
     def borrar_evento_organizador(self, evento_id: str) -> bool:
         """Borra un evento solo si lo creó el Organizador (nunca toca tus eventos propios)."""

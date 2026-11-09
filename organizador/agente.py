@@ -111,13 +111,17 @@ def contexto_general(g: Google, cfg: Config, ahora: datetime, tareas: list[Tarea
     for d, eventos in semana.items():
         fijos = [e for e in eventos if not e.todo_el_dia]
         texto = "; ".join(
-            f"{e.inicio:%H:%M}-{e.fin:%H:%M} {e.titulo}" + (f" [bloque del organizador id={e.id}]" if e.creado_por_organizador else "")
+            f"{e.inicio:%H:%M}-{e.fin:%H:%M} {e.titulo}" + (f" [bloque del organizador id={e.id}]" if e.creado_por_organizador else f" [{e.calendario}]")
             for e in fijos
         ) or "sin eventos"
-        todo_dia = [e.titulo for e in eventos if e.todo_el_dia]
+        todo_dia = [f"{e.titulo} [{e.calendario}]" for e in eventos if e.todo_el_dia]
         if todo_dia:
             texto += " | todo el día: " + ", ".join(todo_dia)
         lineas.append(f"- {_fecha_larga(d)}: {texto}")
+
+    lineas += ["", "MÁS ADELANTE (días 8 a 30) — exámenes, PCs, quizzes y pendientes de sus calendarios:"]
+    despues = [e for e in g.eventos_entre(hoy + timedelta(days=7), hoy + timedelta(days=30)) if not e.creado_por_organizador]
+    lineas += [f"- {_fecha_larga(e.inicio.date())}: {e.titulo} [{e.calendario}]" for e in despues] or ["- (nada)"]
 
     huecos = huecos_libres(semana[hoy], hoy, cfg, desde=ahora)
     lineas += ["", "HUECOS LIBRES QUE QUEDAN HOY: " + (", ".join(f"{a:%H:%M}-{b:%H:%M}" for a, b in huecos) or "ninguno")]
@@ -159,7 +163,11 @@ realistas (máx. 3-4 horas de foco por día, con descansos) y créalos en el cal
 - Si te pide la revisión del día: celebra lo completado, muestra lo pendiente y propone a qué día moverlo; \
 muévelo cuando acepte.
 - Respuestas cortas y fáciles de leer en el celular (máximo ~10 líneas), con listas cuando ayuden.
-- Usa siempre las fechas exactas que aparecen en el contexto (formato AAAA-MM-DD para las herramientas)."""
+- Usa siempre las fechas exactas que aparecen en el contexto (formato AAAA-MM-DD para las herramientas).
+- Sus calendarios incluyen exámenes, PCs, controles y quizzes: trátalos como pendientes importantes. \
+Cuando se acerque uno (próximos 7-10 días), propón bloques de estudio antes de la fecha.
+- Si el usuario te envía una imagen (sílabo, horario, captura de calendario, tarea, apuntes), léela con \
+cuidado, extrae fechas y pendientes, y propón crearlos como tareas o bloques; créalos si te lo pide."""
 
 
 # ---------------------------------------------------------------- agente
@@ -245,12 +253,14 @@ class Agente:
         return contexto_general(self.g, self.cfg, self.ahora, self.tareas, self.metas.listar(),
                                 self.g.tareas_completadas_hoy(hoy))
 
-    def conversar(self, historial: list[dict]) -> str:
+    def conversar(self, historial: list[dict], imagen: bytes | None = None, mime: str = "image/jpeg") -> str:
         contexto = self._contexto()
         contents = [
             types.Content(role="user" if m["role"] == "user" else "model", parts=[types.Part(text=m["content"])])
             for m in historial
         ]
+        if imagen:
+            contents[-1].parts.insert(0, types.Part.from_bytes(data=imagen, mime_type=mime))
         config = types.GenerateContentConfig(
             system_instruction=PERSONALIDAD + "\n\nCONTEXTO ACTUAL:\n" + contexto,
             tools=self.herramientas(),
