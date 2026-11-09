@@ -24,6 +24,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import cargar_config
 from .google_api import SCOPES, Google, Tarea, huecos_libres
+from .agente import Agente, ErrorIA, Metas, gemini_disponible, motivacion_del_dia, plan_con_gemini
 from .planificador import DIAS, construir_contexto, conversar, generar_plan, plan_sin_ia
 
 EN_SERVIDOR = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("EN_SERVIDOR"))
@@ -35,6 +36,7 @@ os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
 cfg = cargar_config()
 cfg.carpeta_datos.mkdir(parents=True, exist_ok=True)
 ARCHIVO_TOKEN = cfg.carpeta_datos / "google_token.json"
+metas = Metas(cfg.carpeta_datos)
 
 TIPOS_AGENDABLES = {"tarea", "enfoque", "rutina"}
 ICONOS = {"tarea": "✅", "evento": "📅", "descanso": "☕", "enfoque": "🎯", "rutina": "🔁"}
@@ -67,8 +69,12 @@ def ahora() -> datetime:
     return datetime.now(cfg.zona)
 
 
-def ia_disponible() -> bool:
+def claude_disponible() -> bool:
     return bool(os.getenv("ANTHROPIC_API_KEY", "").strip())
+
+
+def ia_disponible() -> bool:
+    return gemini_disponible() or claude_disponible()
 
 
 def config_cliente_google() -> dict | None:
@@ -142,6 +148,8 @@ def requiere_login(f):
             return jsonify(error=f"Error de Claude ({e.status_code})."), 502
         except anthropic.APIConnectionError:
             return jsonify(error="No pude conectarme con Claude."), 502
+        except ErrorIA as e:
+            return jsonify(error=str(e)), 503
         except RuntimeError as e:
             return jsonify(error=str(e)), 502
 
@@ -248,6 +256,7 @@ def api_hoy():
            "septiembre", "octubre", "noviembre", "diciembre"][dia.month - 1],
         "hora": momento.strftime("%H:%M"),
         "ia": ia_disponible(),
+        "agente": gemini_disponible(),
         "google": False,
     }
     creds = credenciales_google()
@@ -290,6 +299,7 @@ def api_hoy():
         ],
         completadas=completadas,
         plan=plan,
+        metas=metas.listar(),
     )
     return jsonify(base)
 
@@ -303,7 +313,10 @@ def api_plan():
     g = google()
     eventos, tareas = datos_del_dia(g, dia)
     huecos = huecos_libres(eventos, dia, cfg, desde=momento)
-    if ia_disponible():
+    if gemini_disponible():
+        contexto = construir_contexto(dia, momento, eventos, tareas, huecos, cfg, nota)
+        plan = plan_con_gemini(contexto, metas.listar()).model_dump()
+    elif claude_disponible():
         contexto = construir_contexto(dia, momento, eventos, tareas, huecos, cfg, nota)
         plan = generar_plan(contexto).model_dump()
     else:
@@ -383,6 +396,10 @@ def api_chat():
     momento = ahora()
     dia = momento.date()
     g = google()
+    if gemini_disponible():
+        agente = Agente(g, cfg, metas, momento)
+        texto = agente.conversar(historial)
+        return jsonify(respuesta=texto, acciones=agente.acciones)
     eventos, tareas = datos_del_dia(g, dia)
     huecos = huecos_libres(eventos, dia, cfg, desde=momento)
     contexto = construir_contexto(dia, momento, eventos, tareas, huecos, cfg)
@@ -393,6 +410,44 @@ def api_chat():
             f"- {b['inicio']}-{b['fin']} {b['titulo']}" for b in plan["bloques"]
         )
     return jsonify(respuesta=conversar(contexto, historial))
+
+
+@app.get("/api/motivacion")
+@requiere_login
+def api_motivacion():
+    if not gemini_disponible():
+        return jsonify(motivacion=None)
+    momento = ahora()
+    archivo = cfg.carpeta_datos / f"motivacion-{momento.date().isoformat()}.json"
+    if archivo.exists() and not request.args.get("nuevo"):
+        return jsonify(motivacion=json.loads(archivo.read_text()))
+    m = motivacion_del_dia(google(), cfg, metas, momento)
+    archivo.write_text(json.dumps(m, ensure_ascii=False))
+    return jsonify(motivacion=m)
+
+
+@app.get("/api/metas")
+@requiere_login
+def api_metas():
+    return jsonify(metas=metas.listar())
+
+
+@app.post("/api/metas")
+@requiere_login
+def api_metas_nueva():
+    datos = request.json or {}
+    texto = (datos.get("texto") or "").strip()
+    if not texto:
+        return jsonify(error="Escribe tu meta."), 400
+    metas.agregar(texto, datos.get("porque", ""))
+    return jsonify(metas=metas.listar())
+
+
+@app.delete("/api/metas/<meta_id>")
+@requiere_login
+def api_metas_quitar(meta_id):
+    metas.quitar(meta_id)
+    return jsonify(metas=metas.listar())
 
 
 if __name__ == "__main__":

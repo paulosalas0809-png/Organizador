@@ -35,6 +35,20 @@
   <div id="contenido" class="grid" hidden>
     <div class="col">
       <section class="vista activa" data-vista="hoy">
+        <div class="card coach" id="card-coach" hidden>
+          <div class="coach-top">
+            <div class="avatar">🦊</div>
+            <div>
+              <div class="coach-nombre">Orga, tu coach</div>
+              <div class="coach-titulo" id="coach-titulo">Preparando tu mensaje…</div>
+            </div>
+            <button class="icon-btn" id="coach-otro" title="Otro mensaje" style="margin-left:auto">↻</button>
+          </div>
+          <p class="coach-msg" id="coach-msg"></p>
+          <div class="coach-enfoque" id="coach-enfoque"></div>
+          <button class="btn sec block" id="coach-hablar">💬 Hablar con Orga</button>
+        </div>
+
         <div class="card">
           <h2>Tu progreso de hoy <span class="sub" id="hora"></span></h2>
           <div class="progreso">
@@ -69,6 +83,41 @@
     </div>
 
     <div class="col">
+      <section class="vista" data-vista="agente">
+        <div class="card chat">
+          <h2><span>🦊 Orga <span class="sub" id="agente-modo">tu agente</span></span>
+            <span style="display:flex;gap:6px">
+              <button class="icon-btn" id="btn-voz-salida" title="Leer respuestas en voz alta">🔇</button>
+              <button class="icon-btn" id="btn-chat-nuevo" title="Nueva conversación">🧹</button>
+            </span>
+          </h2>
+          <div class="acciones-rapidas" id="acciones-rapidas">
+            <button class="rapida" data-p="¿Qué debería hacer ahora mismo para avanzar en mis metas?">⚡<span>¿Qué hago ahora?</span></button>
+            <button class="rapida" data-p="Planifica mi semana: reparte mis tareas y mis metas en bloques realistas en mi calendario para los próximos 7 días.">🗓️<span>Planifica mi semana</span></button>
+            <button class="rapida" data-p="Hagamos la revisión del día: qué logré, qué quedó pendiente y a qué día lo movemos.">🌙<span>Revisión del día</span></button>
+            <button class="rapida" data-p="Estoy sin ganas y me cuesta empezar. Ayúdame con algo pequeño y motívame.">💪<span>Motívame</span></button>
+          </div>
+          <div class="mensajes" id="mensajes"></div>
+          <form id="form-chat">
+            <button class="icon-btn mic" type="button" id="btn-mic" title="Hablar">🎤</button>
+            <input type="text" id="chat-input" placeholder="Escríbele o háblale a Orga…" maxlength="2000" autocomplete="off">
+            <button class="btn" type="submit">➤</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="vista" data-vista="metas">
+        <div class="card">
+          <h2>🏁 Mis metas <span class="sub">Orga te guía según ellas</span></h2>
+          <div id="metas"></div>
+          <form id="form-meta" class="form-meta">
+            <input type="text" id="meta-texto" placeholder="Ej: Aprobar Machine Learning con 16" maxlength="200">
+            <input type="text" id="meta-porque" placeholder="¿Por qué es importante para ti? (opcional)" maxlength="300">
+            <button class="btn block" type="submit">+ Agregar meta</button>
+          </form>
+        </div>
+      </section>
+
       <section class="vista" data-vista="tareas">
         <div class="card">
           <h2>📝 Tareas <span class="sub" id="tareas-cuenta"></span></h2>
@@ -105,32 +154,16 @@
         </div>
       </section>
 
-      <section class="vista" data-vista="asistente">
-        <div class="card chat">
-          <h2>🤖 Tu asistente <span class="sub">Claude</span></h2>
-          <div class="mensajes" id="mensajes">
-            <div class="msg assistant">¡Hola! Conozco tu agenda y tus tareas de hoy. ¿En qué te ayudo?</div>
-          </div>
-          <div class="sugerencias" id="sugerencias">
-            <button class="chip">¿Qué hago ahora?</button>
-            <button class="chip">Estoy cansado, ¿qué priorizo?</button>
-            <button class="chip">Divide mi tarea más difícil en pasos</button>
-          </div>
-          <form id="form-chat">
-            <input type="text" id="chat-input" placeholder="Escríbele a tu asistente…" maxlength="2000" autocomplete="off">
-            <button class="btn" type="submit">➤</button>
-          </form>
-        </div>
-      </section>
     </div>
   </div>
 </div>
 
 <nav class="tabs" id="tabs">
   <button class="on" data-vista="hoy"><span class="i">☀️</span>Hoy</button>
+  <button data-vista="agente"><span class="i">🦊</span>Orga</button>
+  <button data-vista="metas"><span class="i">🏁</span>Metas</button>
   <button data-vista="tareas"><span class="i">📝</span>Tareas</button>
   <button data-vista="enfoque"><span class="i">🎯</span>Enfoque</button>
-  <button data-vista="asistente"><span class="i">🤖</span>Asistente</button>
 </nav>
 
 <div class="toast" id="toast"></div>

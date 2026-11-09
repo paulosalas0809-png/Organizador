@@ -41,7 +41,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; }
+html, body { margin: 0; overflow-x: hidden; }
 body {
   background: var(--bg);
   color: var(--text);
@@ -67,9 +67,10 @@ header.top {
   width: 40px; height: 40px; display: grid; place-items: center; font-size: 18px;
 }
 
-.grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+.grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+.col, .vista { min-width: 0; }
 @media (min-width: 900px) {
-  .grid { grid-template-columns: 1.15fr 1fr; align-items: start; }
+  .grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
   .col { display: flex; flex-direction: column; gap: 16px; }
   .tabs { display: none !important; }
   .vista { display: flex !important; flex-direction: column; gap: 16px; }
@@ -225,7 +226,7 @@ header.top {
 /* ---------- tabs (móvil) ---------- */
 .tabs {
   position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 1px solid var(--line);
-  display: grid; grid-template-columns: repeat(4, 1fr); padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+  display: grid; grid-template-columns: repeat(5, 1fr); padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
   z-index: 40;
 }
 .tabs button {
@@ -245,3 +246,59 @@ header.top {
   width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 12px; padding: 12px; margin-bottom: 10px;
 }
 .error { color: var(--warn); font-size: 14px; margin-bottom: 10px; }
+
+/* ---------- coach ---------- */
+.coach {
+  background: linear-gradient(135deg, var(--accent-soft), var(--focus-soft));
+  border-color: transparent;
+}
+.coach-top { display: flex; gap: 12px; align-items: center; }
+.avatar {
+  width: 46px; height: 46px; border-radius: 14px; background: var(--card); display: grid; place-items: center;
+  font-size: 26px; flex: none; box-shadow: var(--shadow);
+}
+.coach-nombre { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.coach-titulo { font-size: 18px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; }
+.coach-msg { margin: 12px 0; }
+.coach-enfoque { display: grid; gap: 6px; margin-bottom: 12px; }
+.coach-enfoque .paso {
+  display: flex; gap: 10px; align-items: flex-start; background: var(--card); border-radius: 12px; padding: 9px 12px;
+  font-size: 14px;
+}
+.coach-enfoque .paso b {
+  background: var(--accent); color: #fff; border-radius: 8px; width: 22px; height: 22px; display: grid;
+  place-items: center; font-size: 12px; flex: none;
+}
+
+/* ---------- agente ---------- */
+.acciones-rapidas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.rapida {
+  border: 1px solid var(--line); background: var(--bg); border-radius: 14px; padding: 10px; text-align: left;
+  display: flex; gap: 8px; align-items: center; font-size: 13px; font-weight: 600;
+}
+.rapida:hover { border-color: var(--accent); }
+.mensajes { min-height: 120px; max-height: 55vh; }
+.msg.assistant { line-height: 1.5; }
+.msg .acciones { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.msg .accion {
+  font-size: 12px; background: var(--ok-soft); color: var(--ok); border-radius: 8px; padding: 4px 8px;
+  white-space: normal;
+}
+.mic.escuchando { background: var(--warn); color: #fff; border-color: var(--warn); animation: latido 1s infinite; }
+@keyframes latido { 50% { transform: scale(1.08); } }
+
+/* ---------- metas ---------- */
+.meta-item {
+  display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: 14px; background: var(--bg);
+  margin-bottom: 8px;
+}
+.meta-item .ico { font-size: 22px; }
+.meta-item .mt { flex: 1; min-width: 0; }
+.meta-item .mt b { display: block; }
+.meta-item .mt small { color: var(--muted); }
+.meta-item .mt .link { background: none; border: 0; color: var(--accent); padding: 4px 0 0; font-size: 13px; font-weight: 600; }
+.form-meta { display: grid; gap: 8px; margin-top: 8px; }
+.form-meta input {
+  border: 1px solid var(--line); background: var(--bg); border-radius: 12px; padding: 10px 12px; width: 100%;
+}
+.tabs button { font-size: 10.5px; }

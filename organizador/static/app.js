@@ -34,8 +34,8 @@ function toast(texto) {
   toast._t = setTimeout(() => t.classList.remove("ver"), 2800);
 }
 
-async function api(ruta, cuerpo) {
-  const opciones = cuerpo === undefined ? {} : {
+async function api(ruta, cuerpo, metodo) {
+  const opciones = metodo ? { method: metodo } : cuerpo === undefined ? {} : {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cuerpo),
   };
   const r = await fetch(ruta, opciones);
@@ -51,7 +51,8 @@ function ahoraMin() { const d = new Date(); return d.getHours() * 60 + d.getMinu
 
 // ---------------------------------------------------------------- carga
 
-async function cargar() {
+async function cargar(silencioso) {
+  const primeraVez = !datos;
   try {
     datos = await api("/api/hoy");
   } catch (e) {
@@ -66,7 +67,7 @@ async function cargar() {
   $("#conectar").hidden = true;
   $("#contenido").hidden = false;
   pintarTodo();
-  pintarChat();
+  if (primeraVez) { pintarChat(); cargarCoach(false); }
 }
 
 function mostrarConectar() {
@@ -76,6 +77,7 @@ function mostrarConectar() {
 }
 
 function pintarTodo() {
+  pintarMetas();
   pintarProgreso();
   pintarPlan();
   pintarAgenda();
@@ -321,32 +323,100 @@ function enfocar(t) {
   toast("🎯 Dale a Empezar cuando estés listo");
 }
 
-// ---------------------------------------------------------------- chat
+// ---------------------------------------------------------------- coach (mensaje motivador)
+
+async function cargarCoach(nuevo) {
+  if (!datos || !datos.agente) { $("#card-coach").hidden = true; return; }
+  $("#card-coach").hidden = false;
+  if (nuevo) { $("#coach-titulo").innerHTML = '<span class="spinner"></span> Pensando en ti…'; }
+  try {
+    const r = await api("/api/motivacion" + (nuevo ? "?nuevo=1" : ""));
+    const m = r.motivacion;
+    if (!m) { $("#card-coach").hidden = true; return; }
+    $("#coach-titulo").textContent = m.titulo;
+    $("#coach-msg").textContent = m.mensaje;
+    $("#coach-enfoque").innerHTML = m.enfoque.map((p, i) => `<div class="paso"><b>${i + 1}</b><span>${esc(p)}</span></div>`).join("");
+  } catch (e) {
+    $("#coach-titulo").textContent = "Hoy es un buen día para avanzar 💪";
+    $("#coach-msg").textContent = e.message;
+  }
+}
+$("#coach-otro").onclick = () => cargarCoach(true);
+$("#coach-hablar").onclick = () => irA("agente");
+
+// ---------------------------------------------------------------- metas
+
+function pintarMetas() {
+  const lista = datos.metas || [];
+  $("#metas").innerHTML = lista.length ? lista.map((m) => `
+    <div class="meta-item" data-id="${esc(m.id)}">
+      <div class="ico">🏁</div>
+      <div class="mt"><b>${esc(m.texto)}</b>${m.porque ? `<small>${esc(m.porque)}</small>` : ""}
+        ${datos.agente ? '<button class="link plan-meta">✨ Pedir a Orga un plan para esta meta</button>' : ""}
+      </div>
+      <button class="icon-btn quitar" title="Quitar" style="width:32px;height:32px;font-size:14px">✕</button>
+    </div>`).join("")
+    : '<p style="color:var(--muted);margin:0 0 6px">Escribe 1 a 3 metas (estudios, salud, dinero, personal…). Orga te dirá cada día qué hacer para cumplirlas. 🚀</p>';
+  $$("#metas .meta-item").forEach((el) => {
+    const m = lista.find((x) => x.id === el.dataset.id);
+    el.querySelector(".quitar").onclick = async () => {
+      if (!confirm(`¿Quitar la meta "${m.texto}"?`)) return;
+      datos.metas = (await api("/api/metas/" + m.id, null, "DELETE")).metas;
+      pintarMetas();
+    };
+    const plan = el.querySelector(".plan-meta");
+    if (plan) plan.onclick = () => {
+      irA("agente");
+      enviarChat(`Quiero cumplir esta meta: "${m.texto}". Divídela en pasos pequeños, dime qué hago esta semana y agenda los bloques en mi calendario.`);
+    };
+  });
+}
+
+$("#form-meta").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const texto = $("#meta-texto").value.trim();
+  if (!texto) return;
+  try {
+    datos.metas = (await api("/api/metas", { texto, porque: $("#meta-porque").value })).metas;
+    $("#meta-texto").value = ""; $("#meta-porque").value = "";
+    pintarMetas();
+    toast("🏁 ¡Meta guardada! Orga la tendrá en cuenta");
+  } catch (err) { toast("😕 " + err.message); }
+});
+
+// ---------------------------------------------------------------- agente (chat)
+
+const BIENVENIDA = "¡Hola! Soy Orga 🦊, tu agente de productividad. Conozco tu agenda, tus tareas y tus metas, y puedo crear, mover y completar cosas por ti. ¿Por dónde empezamos?";
 
 function pintarChat() {
   const caja = $("#mensajes");
   if (datos && !datos.ia) {
-    caja.innerHTML = '<div class="msg assistant">💬 El chat con Claude necesita una clave de la API de Claude (es de pago y aparte de la suscripción Pro). Todo lo demás de la app funciona gratis. 😊</div>';
+    caja.innerHTML = '<div class="msg assistant">🔑 Para activar a Orga falta la clave gratuita de Gemini (GEMINI_API_KEY). Todo lo demás de la app ya funciona.</div>';
     $("#form-chat").style.display = "none";
-    $("#sugerencias").style.display = "none";
+    $("#acciones-rapidas").style.display = "none";
     return;
   }
-  caja.innerHTML = '<div class="msg assistant">¡Hola! Conozco tu agenda y tus tareas de hoy. ¿En qué te ayudo?</div>' +
-    chat.map((m) => `<div class="msg ${m.role}">${esc(m.content)}</div>`).join("");
+  $("#agente-modo").textContent = datos && datos.agente ? "agente con IA" : "asistente";
+  caja.innerHTML = `<div class="msg assistant">${esc(BIENVENIDA)}</div>` + chat.map((m) => `
+    <div class="msg ${m.role}">${esc(m.content)}${m.acciones && m.acciones.length
+      ? `<div class="acciones">${m.acciones.map((a) => `<span class="accion">${esc(a)}</span>`).join("")}</div>` : ""}</div>`).join("");
   caja.scrollTop = caja.scrollHeight;
 }
 
 async function enviarChat(texto) {
   if (!texto.trim()) return;
-  if (datos && !datos.ia) { toast("Falta configurar la clave de Claude"); return; }
+  if (datos && !datos.ia) { toast("Falta la clave de Gemini"); return; }
   chat.push({ role: "user", content: texto.trim() });
   pintarChat();
   const caja = $("#mensajes");
-  caja.insertAdjacentHTML("beforeend", '<div class="msg assistant" id="pensando"><span class="spinner"></span></div>');
+  caja.insertAdjacentHTML("beforeend", '<div class="msg assistant"><span class="spinner"></span> Orga está pensando…</div>');
   caja.scrollTop = caja.scrollHeight;
   try {
-    const r = await api("/api/chat", { historial: chat });
-    chat.push({ role: "assistant", content: r.respuesta });
+    const historial = chat.map(({ role, content }) => ({ role, content }));
+    const r = await api("/api/chat", { historial });
+    chat.push({ role: "assistant", content: r.respuesta, acciones: r.acciones || [] });
+    hablar(r.respuesta);
+    if (r.acciones && r.acciones.length) cargar(true);
   } catch (e) {
     chat.pop();
     toast("😕 " + e.message);
@@ -361,10 +431,63 @@ $("#form-chat").addEventListener("submit", (e) => {
   $("#chat-input").value = "";
   enviarChat(v);
 });
-$("#sugerencias").addEventListener("click", (e) => {
-  const b = e.target.closest(".chip");
-  if (b) enviarChat(b.textContent);
+$("#acciones-rapidas").addEventListener("click", (e) => {
+  const b = e.target.closest(".rapida");
+  if (b) enviarChat(b.dataset.p);
 });
+$("#btn-chat-nuevo").onclick = () => {
+  chat = []; guardar("chat-" + hoyClave(), chat); pintarChat();
+};
+
+// ---------------------------------------------------------------- voz
+
+let vozSalida = leer("voz-salida", false);
+function pintarVozSalida() { $("#btn-voz-salida").textContent = vozSalida ? "🔊" : "🔇"; }
+$("#btn-voz-salida").onclick = () => {
+  vozSalida = !vozSalida; guardar("voz-salida", vozSalida); pintarVozSalida();
+  toast(vozSalida ? "🔊 Orga leerá sus respuestas" : "🔇 Respuestas sin voz");
+  if (!vozSalida && window.speechSynthesis) speechSynthesis.cancel();
+};
+function hablar(texto) {
+  if (!vozSalida || !window.speechSynthesis) return;
+  const limpio = texto.replace(/\p{Extended_Pictographic}|[*_#]/gu, "");
+  const u = new SpeechSynthesisUtterance(limpio);
+  u.lang = "es-PE";
+  const voz = speechSynthesis.getVoices().find((v) => v.lang.startsWith("es"));
+  if (voz) u.voice = voz;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+
+const Reconocimiento = window.SpeechRecognition || window.webkitSpeechRecognition;
+let reco = null;
+$("#btn-mic").onclick = () => {
+  if (!Reconocimiento) { toast("Tu navegador no permite dictado. Prueba con Chrome."); return; }
+  if (reco) { reco.stop(); return; }
+  reco = new Reconocimiento();
+  reco.lang = "es-PE";
+  reco.interimResults = true;
+  reco.continuous = false;
+  let final = "";
+  $("#btn-mic").classList.add("escuchando");
+  $("#chat-input").placeholder = "Te escucho… 🎙️";
+  reco.onresult = (e) => {
+    let parcial = "";
+    for (const r of e.results) { if (r.isFinal) final = r[0].transcript; else parcial += r[0].transcript; }
+    $("#chat-input").value = final || parcial;
+  };
+  reco.onerror = (e) => {
+    if (e.error === "not-allowed") toast("Permite el micrófono para hablarle a Orga");
+  };
+  reco.onend = () => {
+    $("#btn-mic").classList.remove("escuchando");
+    $("#chat-input").placeholder = "Escríbele o háblale a Orga…";
+    reco = null;
+    const texto = $("#chat-input").value.trim();
+    if (final && texto) { $("#chat-input").value = ""; enviarChat(texto); }
+  };
+  reco.start();
+};
 
 // ---------------------------------------------------------------- pestañas (celular)
 
@@ -379,12 +502,12 @@ $("#tabs").addEventListener("click", (e) => {
   if (b) irA(b.dataset.vista);
 });
 
-$("#btn-recargar").onclick = () => { toast("Actualizando…"); cargar(); };
+$("#btn-recargar").onclick = () => { toast("Actualizando…"); cargar(true); };
 
 // ---------------------------------------------------------------- inicio
 
 chat = leer("chat-" + hoyClave(), []);
-pintarChat();
+pintarVozSalida();
 pintarReloj();
 irA(leer("vista", "hoy"));
 cargar();

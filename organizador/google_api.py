@@ -114,6 +114,17 @@ class Google:
             )
         return eventos
 
+    def eventos_rango(self, desde: date, dias: int) -> dict[date, list[Evento]]:
+        return {desde + timedelta(days=i): self.eventos_del_dia(desde + timedelta(days=i)) for i in range(dias)}
+
+    def borrar_evento_organizador(self, evento_id: str) -> bool:
+        """Borra un evento solo si lo creó el Organizador (nunca toca tus eventos propios)."""
+        e = self.calendar.events().get(calendarId=self.cfg.calendario_id, eventId=evento_id).execute()
+        if e.get("extendedProperties", {}).get("private", {}).get(ETIQUETA) != "1":
+            return False
+        self.calendar.events().delete(calendarId=self.cfg.calendario_id, eventId=evento_id).execute()
+        return True
+
     def crear_bloque(self, titulo: str, inicio: datetime, fin: datetime, descripcion: str = "") -> str:
         cuerpo = {
             "summary": titulo,
@@ -124,7 +135,7 @@ class Google:
             "extendedProperties": {"private": {ETIQUETA: "1"}},
         }
         evento = self.calendar.events().insert(calendarId=self.cfg.calendario_id, body=cuerpo).execute()
-        return evento.get("htmlLink", "")
+        return evento["id"]
 
     def borrar_bloques_del_organizador(self, dia: date) -> int:
         """Borra los bloques que el Organizador creó ese día (para re-planificar)."""
@@ -175,6 +186,10 @@ class Google:
         self.tasks.tasks().patch(
             tasklist=lista_id, task=tarea_id, body={"status": "completed"}
         ).execute()
+
+    def cambiar_fecha_tarea(self, lista_id: str, tarea_id: str, fecha: date | None) -> None:
+        due = f"{fecha.isoformat()}T00:00:00.000Z" if fecha else None
+        self.tasks.tasks().patch(tasklist=lista_id, task=tarea_id, body={"due": due}).execute()
 
     def tareas_completadas_hoy(self, dia: date) -> list[str]:
         """Títulos de las tareas que marcaste como completadas ese día."""

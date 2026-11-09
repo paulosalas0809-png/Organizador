@@ -37,12 +37,15 @@ Además de la terminal, el Organizador tiene una **app web** con:
 - ☀️ **Hoy:** tu progreso del día, el plan creado por Claude en una línea de tiempo y tu agenda.
 - 📝 **Tareas:** marca tareas como hechas, crea nuevas y filtra las urgentes.
 - 🎯 **Enfoque:** temporizador Pomodoro conectado a tus tareas.
-- 🤖 **Asistente:** chatea con Claude sobre tu día ("¿qué hago ahora?", "estoy cansado, reorganiza").
+- 🦊 **Orga, tu agente:** coach motivador según tus metas. Le hablas (por texto o voz) y actúa en tu
+  Google Tasks y Calendar: crea, completa y mueve tareas, agenda bloques, planifica tu semana y hace la
+  revisión del día. Usa Gemini (nivel gratuito de Google) con `GEMINI_API_KEY`.
+- 🏁 **Metas:** escribe tus metas y Orga te dice cada día qué hacer para cumplirlas.
 
 Se puede publicar en internet (por ejemplo en Railway) y en el celular se instala como app con
 "Agregar a pantalla de inicio".
 
-**Variables necesarias en el servidor:** `ANTHROPIC_API_KEY`, `APP_PASSWORD`, `GOOGLE_CLIENT_ID`,
+**Variables necesarias en el servidor:** `GEMINI_API_KEY` (gratis en https://aistudio.google.com/apikey; opcional `ANTHROPIC_API_KEY`), `APP_PASSWORD`, `GOOGLE_CLIENT_ID`,
 `GOOGLE_CLIENT_SECRET`, `ZONA_HORARIA`, `HORA_INICIO`, `HORA_FIN` y `CARPETA_DATOS=/data` (con un volumen
 montado en `/data`). El cliente de Google debe ser de tipo **Aplicación web**, con la URI de redirección
 `https://TU-DOMINIO/google/callback`.
