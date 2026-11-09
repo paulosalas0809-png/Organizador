@@ -1,0 +1,10 @@
+# Credenciales y tokens: NUNCA subirlos a GitHub
+credentials.json
+token.json
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
