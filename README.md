@@ -30,6 +30,28 @@ Tienes una mañana con un buen hueco antes de la reunión: úsalo para el report
 
 ---
 
+## 📱 App web (PC y celular)
+
+Además de la terminal, el Organizador tiene una **app web** con:
+
+- ☀️ **Hoy:** tu progreso del día, el plan creado por Claude en una línea de tiempo y tu agenda.
+- 📝 **Tareas:** marca tareas como hechas, crea nuevas y filtra las urgentes.
+- 🎯 **Enfoque:** temporizador Pomodoro conectado a tus tareas.
+- 🤖 **Asistente:** chatea con Claude sobre tu día ("¿qué hago ahora?", "estoy cansado, reorganiza").
+
+Se puede publicar en internet (por ejemplo en Railway) y en el celular se instala como app con
+"Agregar a pantalla de inicio".
+
+**Variables necesarias en el servidor:** `ANTHROPIC_API_KEY`, `APP_PASSWORD`, `GOOGLE_CLIENT_ID`,
+`GOOGLE_CLIENT_SECRET`, `ZONA_HORARIA`, `HORA_INICIO`, `HORA_FIN` y `CARPETA_DATOS=/data` (con un volumen
+montado en `/data`). El cliente de Google debe ser de tipo **Aplicación web**, con la URI de redirección
+`https://TU-DOMINIO/google/callback`.
+
+**Probarla en tu PC:** `py -m organizador.web` y abre http://localhost:8000
+(la URI de redirección local es `http://localhost:8000/google/callback`).
+
+---
+
 ## 🚀 Instalación (una sola vez)
 
 ### 1. Instala Python y las dependencias
@@ -108,6 +130,9 @@ Ajusta tu zona horaria y tu horario productivo.
 
 ```
 organizador/
+├── web.py           # App web (Flask)
+├── templates/       # Páginas HTML
+├── static/          # Diseño (CSS), lógica de la pantalla (JS) e ícono
 ├── __main__.py      # Comandos de la terminal
 ├── config.py        # Lee la configuración del .env
 ├── google_api.py    # Conexión con Google Calendar y Google Tasks

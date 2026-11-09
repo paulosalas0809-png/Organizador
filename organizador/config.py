@@ -25,6 +25,7 @@ class Config:
     calendario_id: str
     archivo_credenciales: Path
     archivo_token: Path
+    carpeta_datos: Path
 
 
 def cargar_config() -> Config:
@@ -35,4 +36,6 @@ def cargar_config() -> Config:
         calendario_id=os.getenv("CALENDARIO_ID", "primary"),
         archivo_credenciales=RAIZ / "credentials.json",
         archivo_token=RAIZ / "token.json",
+        # En el servidor (Railway) apunta a un volumen persistente, p. ej. /data
+        carpeta_datos=Path(os.getenv("CARPETA_DATOS", str(RAIZ / "datos"))),
     )

@@ -65,9 +65,10 @@ def obtener_credenciales(cfg: Config) -> Credentials:
 
 
 class Google:
-    def __init__(self, cfg: Config):
+    def __init__(self, cfg: Config, creds: Credentials | None = None):
         self.cfg = cfg
-        creds = obtener_credenciales(cfg)
+        if creds is None:
+            creds = obtener_credenciales(cfg)
         self.calendar = build("calendar", "v3", credentials=creds, cache_discovery=False)
         self.tasks = build("tasks", "v1", credentials=creds, cache_discovery=False)
 
@@ -168,9 +169,34 @@ class Google:
         return tareas
 
     def completar_tarea(self, tarea: Tarea) -> None:
+        self.completar_tarea_id(tarea.lista_id, tarea.id)
+
+    def completar_tarea_id(self, lista_id: str, tarea_id: str) -> None:
         self.tasks.tasks().patch(
-            tasklist=tarea.lista_id, task=tarea.id, body={"status": "completed"}
+            tasklist=lista_id, task=tarea_id, body={"status": "completed"}
         ).execute()
+
+    def tareas_completadas_hoy(self, dia: date) -> list[str]:
+        """Títulos de las tareas que marcaste como completadas ese día."""
+        desde = datetime.combine(dia, time.min, self.cfg.zona)
+        titulos: list[str] = []
+        listas = self.tasks.tasklists().list(maxResults=100).execute().get("items", [])
+        for lista in listas:
+            resp = (
+                self.tasks.tasks()
+                .list(
+                    tasklist=lista["id"],
+                    showCompleted=True,
+                    showHidden=True,
+                    completedMin=desde.isoformat(),
+                    maxResults=100,
+                )
+                .execute()
+            )
+            for t in resp.get("items", []):
+                if t.get("status") == "completed" and (t.get("title") or "").strip():
+                    titulos.append(t["title"].strip())
+        return titulos
 
     def crear_tarea(self, titulo: str, vence: date | None = None, notas: str = "") -> None:
         lista_id = self.tasks.tasklists().list(maxResults=1).execute()["items"][0]["id"]

@@ -131,3 +131,34 @@ def generar_plan(contexto: str) -> PlanDelDia:
     if respuesta.stop_reason == "max_tokens" or respuesta.parsed_output is None:
         raise RuntimeError("La respuesta de Claude quedó incompleta. Intenta de nuevo.")
     return respuesta.parsed_output
+
+
+SISTEMA_CHAT = """Eres el asistente personal de productividad del usuario. Hablas en español, \
+con un tono cercano, motivador y directo. Respuestas breves (máximo 6-8 líneas), fáciles \
+de leer en el celular; usa listas cortas cuando ayuden.
+
+Conoces su agenda y sus tareas de hoy (abajo). Ayúdale a decidir qué hacer ahora, a \
+reorganizar el día si algo cambió, a dividir tareas grandes en pasos pequeños y a no \
+procrastinar. Si te pide un plan completo nuevo, sugiérele usar el botón "Generar plan" \
+escribiendo sus indicaciones.
+
+SU DÍA:
+"""
+
+
+def conversar(contexto: str, historial: list[dict]) -> str:
+    """Responde un mensaje del chat. `historial` es [{role, content}, ...] terminando en user."""
+    client = anthropic.Anthropic()
+    respuesta = client.beta.messages.create(
+        model=MODELO,
+        max_tokens=4000,
+        system=SISTEMA_CHAT + contexto,
+        output_config={"effort": "low"},
+        betas=["server-side-fallback-2026-07-01"],
+        fallbacks="default",
+        messages=historial,
+    )
+    if respuesta.stop_reason == "refusal":
+        return "Lo siento, no puedo ayudarte con eso. ¿Probamos con otra pregunta?"
+    texto = "".join(b.text for b in respuesta.content if b.type == "text").strip()
+    return texto or "No tengo una respuesta ahora mismo, intenta de nuevo."

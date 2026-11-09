@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Organizador</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="{{ url_for('static', filename='icono.svg') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icono.svg') }}">
+  <meta name="theme-color" content="#d9683b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="saludo">
+      <h1 id="saludo">Hola 👋</h1>
+      <p id="fecha">Cargando tu día…</p>
+    </div>
+    <div class="top-acciones">
+      <button class="icon-btn" id="btn-recargar" title="Actualizar">↻</button>
+      <a class="icon-btn" href="/salir" title="Salir" style="text-decoration:none">🚪</a>
+    </div>
+  </header>
+
+  <div id="cargando" class="cargando"><span class="spinner"></span> Leyendo tu calendario y tus tareas…</div>
+
+  <div id="conectar" class="aviso" hidden>
+    <h2>Conecta tu Google 🔗</h2>
+    <p>Para ver tu calendario y tus tareas, inicia sesión con tu cuenta de Google. Solo se hace una vez.</p>
+    <a class="btn" href="/google/conectar" style="text-decoration:none">Conectar con Google</a>
+  </div>
+
+  <div id="contenido" class="grid" hidden>
+    <div class="col">
+      <section class="vista activa" data-vista="hoy">
+        <div class="card">
+          <h2>Tu progreso de hoy <span class="sub" id="hora"></span></h2>
+          <div class="progreso">
+            <div class="anillo">
+              <svg width="92" height="92" viewBox="0 0 92 92">
+                <circle cx="46" cy="46" r="38" fill="none" stroke="var(--line)" stroke-width="9"/>
+                <circle id="anillo-arco" cx="46" cy="46" r="38" fill="none" stroke="var(--ok)" stroke-width="9"
+                        stroke-linecap="round" stroke-dasharray="238.76" stroke-dashoffset="238.76"
+                        style="transition: stroke-dashoffset .6s"/>
+              </svg>
+              <div class="num"><div><span id="pct">0%</span><small>del día</small></div></div>
+            </div>
+            <div class="stats">
+              <div class="stat"><b id="st-hechas">0</b><span>hechas</span></div>
+              <div class="stat"><b id="st-urgentes">0</b><span>urgentes</span></div>
+              <div class="stat"><b id="st-eventos">0</b><span>eventos</span></div>
+            </div>
+          </div>
+          <p class="frase" id="frase"></p>
+        </div>
+
+        <div class="card" id="card-plan">
+          <h2>✨ Mi plan del día <span class="sub" id="plan-hora"></span></h2>
+          <div id="plan"></div>
+        </div>
+
+        <div class="card">
+          <h2>📅 Agenda de hoy</h2>
+          <div id="agenda"></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="vista" data-vista="tareas">
+        <div class="card">
+          <h2>📝 Tareas <span class="sub" id="tareas-cuenta"></span></h2>
+          <form class="nueva" id="form-nueva">
+            <input type="text" id="nueva-titulo" placeholder="Nueva tarea…" maxlength="300">
+            <button class="btn" type="submit">+</button>
+          </form>
+          <label class="chk-hoy"><input type="checkbox" id="nueva-hoy"> Que venza hoy</label>
+          <div class="filtros" id="filtros">
+            <button class="chip on" data-f="todas">Todas</button>
+            <button class="chip" data-f="urgentes">Urgentes</button>
+            <button class="chip" data-f="sin_fecha">Sin fecha</button>
+          </div>
+          <div id="tareas"></div>
+          <div class="hechas-hoy" id="hechas-hoy"></div>
+        </div>
+      </section>
+
+      <section class="vista" data-vista="enfoque">
+        <div class="card pomodoro">
+          <h2>🎯 Modo enfoque <span class="sub">Pomodoro</span></h2>
+          <div class="modos">
+            <button class="chip on" data-min="25">Enfoque 25</button>
+            <button class="chip" data-min="5">Pausa 5</button>
+            <button class="chip" data-min="15">Pausa 15</button>
+          </div>
+          <div class="reloj" id="reloj">25:00</div>
+          <div class="pomo-tarea" id="pomo-tarea">Elige una tarea con 🎯 o simplemente empieza</div>
+          <div class="fila-btn">
+            <button class="btn" id="pomo-iniciar">▶ Empezar</button>
+            <button class="btn sec" id="pomo-reiniciar">↺</button>
+          </div>
+          <div class="ciclos" id="ciclos">0 pomodoros hoy</div>
+        </div>
+      </section>
+
+      <section class="vista" data-vista="asistente">
+        <div class="card chat">
+          <h2>🤖 Tu asistente <span class="sub">Claude</span></h2>
+          <div class="mensajes" id="mensajes">
+            <div class="msg assistant">¡Hola! Conozco tu agenda y tus tareas de hoy. ¿En qué te ayudo?</div>
+          </div>
+          <div class="sugerencias" id="sugerencias">
+            <button class="chip">¿Qué hago ahora?</button>
+            <button class="chip">Estoy cansado, ¿qué priorizo?</button>
+            <button class="chip">Divide mi tarea más difícil en pasos</button>
+          </div>
+          <form id="form-chat">
+            <input type="text" id="chat-input" placeholder="Escríbele a tu asistente…" maxlength="2000" autocomplete="off">
+            <button class="btn" type="submit">➤</button>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<nav class="tabs" id="tabs">
+  <button class="on" data-vista="hoy"><span class="i">☀️</span>Hoy</button>
+  <button data-vista="tareas"><span class="i">📝</span>Tareas</button>
+  <button data-vista="enfoque"><span class="i">🎯</span>Enfoque</button>
+  <button data-vista="asistente"><span class="i">🤖</span>Asistente</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

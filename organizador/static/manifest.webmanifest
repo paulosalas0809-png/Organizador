@@ -1,0 +1,13 @@
+{
+  "name": "Organizador",
+  "short_name": "Organizador",
+  "description": "Tu asistente para un día productivo",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f2ee",
+  "theme_color": "#d9683b",
+  "lang": "es",
+  "icons": [
+    { "src": "/static/icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
