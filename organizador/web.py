@@ -68,11 +68,13 @@ def ahora() -> datetime:
 
 
 def ia_disponible() -> bool:
-    return bool(os.getenv("ANTHROPIC_API_KEY"))
+    return bool(os.getenv("ANTHROPIC_API_KEY", "").strip())
 
 
 def config_cliente_google() -> dict | None:
-    cid, secreto = os.getenv("GOOGLE_CLIENT_ID"), os.getenv("GOOGLE_CLIENT_SECRET")
+    # .strip() por si al copiar quedaron espacios o saltos de línea invisibles
+    cid = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+    secreto = os.getenv("GOOGLE_CLIENT_SECRET", "").strip()
     if cid and secreto:
         return {
             "web": {
@@ -157,12 +159,12 @@ def datos_del_dia(g: Google, dia):
 
 @app.route("/entrar", methods=["GET", "POST"])
 def login():
-    clave = os.getenv("APP_PASSWORD", "")
+    clave = os.getenv("APP_PASSWORD", "").strip()
     error = None
     if not clave:
         error = "Falta configurar APP_PASSWORD en el servidor."
     elif request.method == "POST":
-        if hmac.compare_digest(request.form.get("clave", ""), clave):
+        if hmac.compare_digest(request.form.get("clave", "").strip(), clave):
             session.permanent = True
             session["ok"] = True
             return redirect(url_for("inicio"))
