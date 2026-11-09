@@ -206,7 +206,16 @@ def google_callback():
         code_verifier=session.pop("oauth_verificador", None),
         autogenerate_code_verifier=False,
     )
-    flow.fetch_token(authorization_response=request.url)
+    try:
+        flow.fetch_token(authorization_response=request.url)
+    except Exception as e:  # errores de OAuth: secreto incorrecto, permiso cancelado, etc.
+        app.logger.warning("Error conectando Google: %s", e)
+        mensaje = str(e)
+        if "client secret" in mensaje:
+            mensaje = "El GOOGLE_CLIENT_SECRET no es correcto. Revísalo en Railway."
+        elif "access_denied" in mensaje:
+            mensaje = "Cancelaste el permiso o tu cuenta no está como usuario de prueba."
+        return render_template("entrar.html", error=f"No pude conectar Google: {mensaje}"), 400
     ARCHIVO_TOKEN.write_text(flow.credentials.to_json())
     return redirect(url_for("inicio"))
 
