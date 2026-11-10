@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
@@ -84,6 +85,13 @@ class Google:
                 for c in items
                 if c.get("selected", True) and not c.get("hidden", False)
             ]
+            # CALENDARIOS="a,b": leer solo esos calendarios (por nombre o id, sin importar mayúsculas)
+            filtro = [f.strip().lower() for f in os.getenv("CALENDARIOS", "").split(",") if f.strip()]
+            if filtro:
+                for c in self._calendarios:
+                    c["solo_bloques"] = not any(f in c["id"].lower() or f in c["nombre"].lower() for f in filtro)
+                # Del resto solo se mantiene el principal, y únicamente para ver los bloques del Organizador
+                self._calendarios = [c for c in self._calendarios if not c["solo_bloques"] or c["principal"]]
             if not any(c["id"] == self.cfg.calendario_id or (c["principal"] and self.cfg.calendario_id == "primary")
                        for c in self._calendarios):
                 self._calendarios.append({"id": self.cfg.calendario_id, "nombre": "Principal", "principal": True})
@@ -117,6 +125,8 @@ class Google:
                         final = datetime.fromisoformat(fin["dateTime"]).astimezone(zona)
                     privadas = e.get("extendedProperties", {}).get("private", {})
                     es_principal = cal["principal"] or cal["id"] == self.cfg.calendario_id
+                    if cal.get("solo_bloques") and privadas.get(ETIQUETA) != "1":
+                        continue
                     eventos.append(Evento(
                         id=e["id"],
                         titulo=e.get("summary", "(sin título)"),
