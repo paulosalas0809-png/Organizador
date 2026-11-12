@@ -276,6 +276,23 @@ class Agente:
         return texto
 
 
+# ---------------------------------------------------------------- mensajes de voz
+
+
+def transcribir(audio: bytes, mime: str = "audio/wav") -> str:
+    """Convierte un mensaje de voz en texto usando Gemini."""
+    config = types.GenerateContentConfig(
+        system_instruction=(
+            "Transcribe literalmente el audio en español (el hablante es de Perú). Devuelve solo el texto "
+            "dicho, con puntuación normal, sin comentarios ni comillas. Si no se entiende nada o no hay voz, "
+            "devuelve una cadena vacía."
+        ),
+        temperature=0,
+    )
+    r = _generar([types.Part.from_bytes(data=audio, mime_type=mime), "Transcribe este audio."], config)
+    return (r.text or "").strip().strip('"')
+
+
 # ---------------------------------------------------------------- mensaje motivador del día
 
 

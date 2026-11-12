@@ -543,35 +543,109 @@ function hablar(texto) {
   speechSynthesis.speak(u);
 }
 
-const Reconocimiento = window.SpeechRecognition || window.webkitSpeechRecognition;
-let reco = null;
-$("#btn-mic").onclick = () => {
-  if (!Reconocimiento) { toast("Tu navegador no permite dictado. Prueba con Chrome."); return; }
-  if (reco) { reco.stop(); return; }
-  reco = new Reconocimiento();
-  reco.lang = "es-PE";
-  reco.interimResults = true;
-  reco.continuous = false;
-  let final = "";
-  $("#btn-mic").classList.add("escuchando");
-  $("#chat-input").placeholder = "Te escucho…";
-  reco.onresult = (e) => {
-    let parcial = "";
-    for (const r of e.results) { if (r.isFinal) final = r[0].transcript; else parcial += r[0].transcript; }
-    $("#chat-input").value = final || parcial;
-  };
-  reco.onerror = (e) => {
-    if (e.error === "not-allowed") toast("Permite el micrófono para hablarle a Orga");
-  };
-  reco.onend = () => {
-    $("#btn-mic").classList.remove("escuchando");
-    $("#chat-input").placeholder = "Escríbele o háblale a Orga…";
-    reco = null;
-    const texto = $("#chat-input").value.trim();
-    if (final && texto) { $("#chat-input").value = ""; enviarChat(texto); }
-  };
-  reco.start();
-};
+// ---- mensajes de voz: se graba el audio, se convierte a WAV y Orga lo transcribe
+
+const VOZ_MAX = 90; // segundos
+const voz = { grabando: false, medio: null, flujo: null, trozos: [], inicio: 0, reloj: null, cancelar: false };
+
+function pintarGrabacion() {
+  const seg = Math.floor((Date.now() - voz.inicio) / 1000);
+  $("#grabando-tiempo").textContent = `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, "0")}`;
+  if (seg >= VOZ_MAX) detenerGrabacion(false);
+}
+
+function modoGrabacion(activo) {
+  voz.grabando = activo;
+  $("#form-chat").classList.toggle("rec-on", activo);
+  $("#grabando").hidden = !activo;
+  $("#chat-input").hidden = activo;
+  $("#btn-foto").hidden = activo;
+  $("#btn-mic").classList.toggle("escuchando", activo);
+  $("#btn-mic").title = activo ? "Detener y enviar" : "Grabar mensaje de voz";
+}
+
+async function iniciarGrabacion() {
+  if (datos && !datos.agente) { toast("Los mensajes de voz necesitan la clave de Gemini"); return; }
+  if (!navigator.mediaDevices || !window.MediaRecorder) {
+    toast("Tu navegador no permite grabar audio. Prueba con Chrome o Safari."); return;
+  }
+  try {
+    voz.flujo = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+  } catch (e) {
+    toast(e.name === "NotAllowedError"
+      ? "Permite el micrófono: toca el candado junto a la dirección y activa Micrófono"
+      : "No encontré un micrófono en este dispositivo");
+    return;
+  }
+  voz.trozos = []; voz.cancelar = false;
+  voz.medio = new MediaRecorder(voz.flujo);
+  voz.medio.ondataavailable = (e) => { if (e.data.size) voz.trozos.push(e.data); };
+  voz.medio.onstop = terminarGrabacion;
+  voz.medio.start();
+  voz.inicio = Date.now();
+  modoGrabacion(true);
+  pintarGrabacion();
+  voz.reloj = setInterval(pintarGrabacion, 250);
+}
+
+function detenerGrabacion(cancelar) {
+  if (!voz.grabando) return;
+  voz.cancelar = cancelar;
+  clearInterval(voz.reloj);
+  modoGrabacion(false);
+  if (voz.medio && voz.medio.state !== "inactive") voz.medio.stop();
+}
+
+// Convierte lo grabado (webm, mp4…) a WAV mono de 16 kHz, que la IA entiende en cualquier navegador
+async function aWav(blob) {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  const ctx = new Ctx();
+  const audio = await ctx.decodeAudioData(await blob.arrayBuffer());
+  ctx.close();
+  const tasa = 16000;
+  const largo = Math.max(1, Math.round(audio.duration * tasa));
+  const off = new OfflineAudioContext(1, largo, tasa);
+  const fuente = off.createBufferSource();
+  fuente.buffer = audio; fuente.connect(off.destination); fuente.start();
+  const pcm = (await off.startRendering()).getChannelData(0);
+  const vista = new DataView(new ArrayBuffer(44 + pcm.length * 2));
+  const txt = (pos, t) => { for (let i = 0; i < t.length; i++) vista.setUint8(pos + i, t.charCodeAt(i)); };
+  txt(0, "RIFF"); vista.setUint32(4, 36 + pcm.length * 2, true); txt(8, "WAVEfmt ");
+  vista.setUint32(16, 16, true); vista.setUint16(20, 1, true); vista.setUint16(22, 1, true);
+  vista.setUint32(24, tasa, true); vista.setUint32(28, tasa * 2, true); vista.setUint16(32, 2, true);
+  vista.setUint16(34, 16, true); txt(36, "data"); vista.setUint32(40, pcm.length * 2, true);
+  for (let i = 0; i < pcm.length; i++) {
+    const v = Math.max(-1, Math.min(1, pcm[i]));
+    vista.setInt16(44 + i * 2, v < 0 ? v * 0x8000 : v * 0x7fff, true);
+  }
+  return new Blob([vista], { type: "audio/wav" });
+}
+
+const aDataUrl = (blob) => new Promise((ok, mal) => {
+  const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = mal; r.readAsDataURL(blob);
+});
+
+async function terminarGrabacion() {
+  voz.flujo.getTracks().forEach((t) => t.stop());
+  const duracion = (Date.now() - voz.inicio) / 1000;
+  if (voz.cancelar) return;
+  if (duracion < 0.7 || !voz.trozos.length) { toast("Mensaje muy corto: mantén la grabación un poco más"); return; }
+  const caja = $("#mensajes");
+  caja.insertAdjacentHTML("beforeend", '<div class="msg user" id="voz-pendiente"><span class="spinner"></span> Enviando mensaje de voz…</div>');
+  caja.scrollTop = caja.scrollHeight;
+  try {
+    const wav = await aWav(new Blob(voz.trozos, { type: voz.medio.mimeType }));
+    const r = await api("/api/voz", { audio: await aDataUrl(wav) });
+    const p = $("#voz-pendiente"); if (p) p.remove();
+    enviarChat(r.texto);
+  } catch (e) {
+    const p = $("#voz-pendiente"); if (p) p.remove();
+    toast(e.message || "No pude procesar el audio");
+  }
+}
+
+$("#btn-mic").onclick = () => (voz.grabando ? detenerGrabacion(false) : iniciarGrabacion());
+$("#grabando-cancelar").onclick = () => detenerGrabacion(true);
 
 // ---------------------------------------------------------------- pestañas (celular)
 

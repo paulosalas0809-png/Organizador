@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=6">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=7">
 </head>
 <body>
 
@@ -185,7 +185,11 @@
           <form id="form-chat" class="compositor">
             <input type="file" id="input-foto" accept="image/*" hidden>
             <button class="icon-btn fantasma" type="button" id="btn-foto" title="Enviar una foto"><svg class="ic"><use href="#i-clip"/></svg></button>
-            <button class="icon-btn fantasma mic" type="button" id="btn-mic" title="Hablar"><svg class="ic"><use href="#i-mic"/></svg></button>
+            <button class="icon-btn fantasma mic" type="button" id="btn-mic" title="Grabar mensaje de voz"><svg class="ic"><use href="#i-mic"/></svg></button>
+            <div class="grabando" id="grabando" hidden>
+              <button type="button" class="icon-btn fantasma" id="grabando-cancelar" title="Cancelar"><svg class="ic"><use href="#i-borrar"/></svg></button>
+              <i class="rec"></i><b id="grabando-tiempo">0:00</b><span>Toca el botón rojo para enviar</span>
+            </div>
             <input type="text" id="chat-input" placeholder="Escríbele o háblale a Orga…" maxlength="2000" autocomplete="off">
             <button class="btn enviar" type="submit" title="Enviar"><svg class="ic"><use href="#i-enviar"/></svg></button>
           </form>
@@ -271,6 +275,6 @@
 </nav>
 
 <div class="toast" id="toast"></div>
-<script src="{{ url_for('static', filename='app.js') }}?v=6"></script>
+<script src="{{ url_for('static', filename='app.js') }}?v=7"></script>
 </body>
 </html>

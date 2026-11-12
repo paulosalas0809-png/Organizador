@@ -24,7 +24,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import cargar_config
 from .google_api import SCOPES, Google, Tarea, huecos_libres
-from .agente import Agente, ErrorIA, Metas, gemini_disponible, motivacion_del_dia, plan_con_gemini
+from .agente import Agente, ErrorIA, Metas, gemini_disponible, motivacion_del_dia, plan_con_gemini, transcribir
 from .planificador import DIAS, construir_contexto, conversar, generar_plan, plan_sin_ia
 
 EN_SERVIDOR = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("EN_SERVIDOR"))
@@ -463,6 +463,24 @@ def api_chat():
             f"- {b['inicio']}-{b['fin']} {b['titulo']}" for b in plan["bloques"]
         )
     return jsonify(respuesta=conversar(contexto, historial))
+
+
+@app.post("/api/voz")
+@requiere_login
+def api_voz():
+    """Recibe un mensaje de voz (data URL en base64) y devuelve su transcripción."""
+    if not gemini_disponible():
+        return jsonify(error="Los mensajes de voz necesitan la clave de Gemini."), 400
+    import base64
+
+    cabecera, _, b64 = ((request.json or {}).get("audio") or "").partition(",")
+    if not b64:
+        return jsonify(error="No llegó el audio."), 400
+    mime = cabecera[5:].split(";")[0] if cabecera.startswith("data:audio/") else "audio/wav"
+    texto = transcribir(base64.b64decode(b64), mime)
+    if not texto:
+        return jsonify(error="No logré entender el audio. Intenta hablar más cerca del micrófono."), 422
+    return jsonify(texto=texto)
 
 
 @app.get("/api/motivacion")

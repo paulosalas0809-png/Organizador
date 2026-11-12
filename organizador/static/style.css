@@ -397,3 +397,13 @@ details.rehacer summary { cursor: pointer; color: var(--muted); font-size: 13.5p
 .error { color: var(--danger); background: var(--danger-soft); border-radius: 10px; padding: 8px 12px; font-size: 14px; }
 .chat-quien span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chat-quien .punto { flex: none; }
+
+/* ---------- mensaje de voz ---------- */
+.grabando { flex: 1; display: flex; align-items: center; gap: 9px; min-width: 0; font-size: 14px; color: var(--muted); }
+.grabando b { color: var(--text); font-variant-numeric: tabular-nums; }
+.grabando span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rec { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); flex: none; animation: parpadeo 1s infinite; }
+@keyframes parpadeo { 50% { opacity: .25; } }
+.compositor.rec-on { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 16%, transparent); }
+.compositor.rec-on .enviar { display: none; }
+.compositor.rec-on .mic { order: 3; width: 40px; height: 40px; }
