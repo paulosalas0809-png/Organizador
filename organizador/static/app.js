@@ -4,19 +4,17 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+const ico = (n) => `<svg class="ic"><use href="#i-${n}"/></svg>`;
+const sinEmoji = (t) => String(t ?? "").replace(/[\p{Extended_Pictographic}\uFE0F\u200D]+\s*/gu, "").trim();
+// Formato mínimo para las respuestas de la IA: **negrita** y viñetas
+const md = (t) => esc(t)
+  .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+  .replace(/^(\s*)[*-]\s+/gm, "$1• ")
+  .replace(/^#{1,4}\s+(.+)$/gm, "<strong>$1</strong>");
+
 let datos = null;
 let filtro = "todas";
 let chat = [];
-
-const FRASES = [
-  "Un paso pequeño hoy vale más que un plan perfecto mañana.",
-  "Haz primero lo difícil; el resto del día se siente más liviano.",
-  "No tienes que hacerlo todo, solo lo importante.",
-  "La constancia gana a la motivación.",
-  "Termina una cosa antes de empezar otra.",
-  "Descansar también es parte de ser productivo.",
-  "Hecho es mejor que perfecto.",
-];
 
 // ---------------------------------------------------------------- utilidades
 
@@ -28,7 +26,7 @@ function hoyClave() { const d = new Date(); return `${d.getFullYear()}-${d.getMo
 
 function toast(texto) {
   const t = $("#toast");
-  t.textContent = texto;
+  t.textContent = sinEmoji(texto);
   t.classList.add("ver");
   clearTimeout(toast._t);
   toast._t = setTimeout(() => t.classList.remove("ver"), 2800);
@@ -56,12 +54,12 @@ async function cargar(silencioso) {
   try {
     datos = await api("/api/hoy");
   } catch (e) {
-    $("#cargando").innerHTML = "😕 " + esc(e.message);
+    $("#cargando").textContent = e.message;
     return;
   }
   $("#cargando").hidden = true;
   const h = new Date().getHours();
-  $("#saludo").textContent = h < 12 ? "Buenos días ☀️" : h < 19 ? "Buenas tardes 🌤️" : "Buenas noches 🌙";
+  $("#saludo").textContent = (h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches") + (datos.nombre ? ", " + datos.nombre : "");
   $("#fecha").textContent = datos.fecha;
   if (!datos.google) { mostrarConectar(); return; }
   $("#conectar").hidden = true;
@@ -92,7 +90,10 @@ function pintarProximos() {
       <div class="pt"><div>${esc(e.titulo)}</div><small>${e.hora ? esc(e.hora) + " · " : ""}${esc(e.calendario)}</small></div>
       <span class="cuenta ${clase}">${cuando}</span></div>`;
   }).join("") + (lista.length > 6 ? `<button class="ver-mas" id="prox-mas">${proxTodos ? "Ver menos" : `Ver todos (${lista.length})`}</button>` : "")
-    : '<p style="color:var(--muted);margin:0">Nada en los próximos 30 días. 🌴</p>';
+    : '<p class="vacio">Nada en los próximos 30 días.</p>';
+  const p0 = lista[0];
+  $("#kpi-prox-cuando").textContent = p0 ? (p0.dias === 1 ? "Mañana" : `En ${p0.dias} días`) : "—";
+  $("#kpi-prox-titulo").textContent = p0 ? p0.titulo : "Sin pendientes próximos";
   const mas = $("#prox-mas");
   if (mas) mas.onclick = () => { proxTodos = !proxTodos; pintarProximos(); };
 }
@@ -114,13 +115,9 @@ function pintarProgreso() {
   const total = hechas + urgentes;
   const pct = total ? Math.round((hechas / total) * 100) : (hechas ? 100 : 0);
   $("#pct").textContent = pct + "%";
-  $("#anillo-arco").style.strokeDashoffset = 238.76 * (1 - pct / 100);
+  $("#anillo-arco").style.strokeDashoffset = 150.8 * (1 - pct / 100);
   $("#st-hechas").textContent = hechas;
   $("#st-urgentes").textContent = urgentes;
-  $("#st-eventos").textContent = datos.eventos.filter((e) => !e.organizador).length;
-  $("#hora").textContent = datos.hora;
-  const d = new Date();
-  $("#frase").textContent = "“" + FRASES[(d.getDate() + d.getMonth()) % FRASES.length] + "”";
 }
 
 // ---------------------------------------------------------------- plan
@@ -130,15 +127,14 @@ function pintarPlan() {
   const plan = datos.plan;
   const formulario = `
     ${datos.ia ? '<textarea class="nota-input" id="nota" rows="2" placeholder="Indicaciones opcionales: “hoy salgo a las 6”, “estoy con poca energía”…"></textarea>' : '<div style="height:10px"></div>'}
-    <button class="btn block" id="btn-plan">✨ ${plan ? "Rehacer mi plan" : "Generar mi plan"}</button>`;
+    <button class="btn block" id="btn-plan">${ico("chispa")}${plan ? "Rehacer mi plan" : "Generar mi plan"}</button>`;
   if (!plan) {
-    caja.innerHTML = `<div class="plan-vacio"><div class="big">🌱</div>
-      <p>${datos.ia ? "Tu asistente revisará tu agenda y tus tareas para armar un día realista." : "Ordeno tus tareas por urgencia y las acomodo en tus horas libres, con pausas."}</p></div>${formulario}`;
+    caja.innerHTML = `<p class="plan-vacio">${datos.ia ? "Orga revisa tu agenda, tus tareas y tus metas, y arma un día realista con bloques de enfoque y descansos." : "Ordeno tus tareas por urgencia y las acomodo en tus horas libres, con pausas."}</p>${formulario}`;
     $("#btn-plan").onclick = generarPlan;
     $("#plan-hora").textContent = "";
     return;
   }
-  $("#plan-hora").textContent = "creado " + plan.generado;
+  $("#plan-hora").textContent = "Creado a las " + plan.generado;
   const ahora = ahoraMin();
   const bloques = plan.bloques.map((b) => {
     const ini = minutos(b.inicio), fin = minutos(b.fin);
@@ -152,12 +148,12 @@ function pintarPlan() {
     <p class="resumen">${esc(plan.resumen)}</p>
     <ol class="prioridades">${plan.prioridades.map((p, i) => `<li><b>${i + 1}</b><span>${esc(p)}</span></li>`).join("")}</ol>
     <div class="timeline">${bloques}</div>
-    ${plan.otro_dia && plan.otro_dia.length ? `<div class="otro-dia">📦 Mejor para otro día: ${plan.otro_dia.map(esc).join(", ")}</div>` : ""}
-    <div class="consejo">💡 ${esc(plan.consejo)}</div>
+    ${plan.otro_dia && plan.otro_dia.length ? `<div class="nota-plan">${ico("caja")}<span>Mejor para otro día: ${plan.otro_dia.map(esc).join(", ")}</span></div>` : ""}
+    <div class="nota-plan consejo">${ico("idea")}<span>${esc(sinEmoji(plan.consejo))}</span></div>
     <div class="fila-btn">
-      <button class="btn ${plan.agendado ? "sec" : ""}" id="btn-agendar">${plan.agendado ? "✓ En tu calendario" : "📅 Poner en Google Calendar"}</button>
+      <button class="btn ${plan.agendado ? "sec" : ""}" id="btn-agendar">${plan.agendado ? ico("check") + "En tu calendario" : ico("calendario") + "Poner en Google Calendar"}</button>
     </div>
-    <details style="margin-top:12px"><summary style="cursor:pointer;color:var(--muted);font-size:14px">Rehacer el plan</summary>${formulario}</details>`;
+    <details class="rehacer"><summary>Rehacer el plan</summary>${formulario}</details>`;
   $("#btn-plan").onclick = generarPlan;
   $("#btn-agendar").onclick = agendar;
 }
@@ -165,7 +161,7 @@ function pintarPlan() {
 async function generarPlan() {
   const btn = $("#btn-plan");
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Tu asistente está pensando…';
+  btn.innerHTML = '<span class="spinner"></span> Orga está armando tu plan…';
   try {
     datos.plan = await api("/api/plan", { nota: ($("#nota") || {}).value || "" });
     pintarPlan();
@@ -173,7 +169,7 @@ async function generarPlan() {
   } catch (e) {
     toast("😕 " + e.message);
     btn.disabled = false;
-    btn.textContent = "✨ Intentar de nuevo";
+    btn.textContent = "Intentar de nuevo";
   }
 }
 
@@ -199,8 +195,9 @@ function pintarAgenda() {
   const ev = datos.eventos;
   $("#agenda").innerHTML = ev.length
     ? ev.map((e) => `<div class="evento-item"><div class="h">${e.todo_el_dia ? "Todo el día" : esc(e.inicio) + " – " + esc(e.fin)}</div>
-        <div>${esc(e.titulo)}${e.calendario ? ` <small style="color:var(--muted)">· ${esc(e.calendario)}</small>` : ""}</div></div>`).join("")
-    : '<p style="color:var(--muted);margin:0">No tienes eventos hoy. ¡Día libre para avanzar! 🚀</p>';
+        <div class="e">${esc(e.titulo)}${e.calendario && !e.organizador ? ` <small>· ${esc(e.calendario)}</small>` : ""}</div></div>`).join("")
+    : '<p class="vacio">Sin eventos hoy: tienes el día libre para avanzar.</p>';
+  $("#agenda-cuenta").textContent = ev.length ? `${ev.length} evento${ev.length === 1 ? "" : "s"}` : "";
 }
 
 // ---------------------------------------------------------------- tareas
@@ -209,7 +206,7 @@ function pintarTareas() {
   let lista = datos.tareas;
   if (filtro === "urgentes") lista = lista.filter((t) => t.estado === "vencida" || t.estado === "hoy");
   if (filtro === "sin_fecha") lista = lista.filter((t) => t.estado === "sin_fecha");
-  $("#tareas-cuenta").textContent = datos.tareas.length + " pendientes";
+  $("#tareas-cuenta").textContent = `${datos.tareas.length} pendiente${datos.tareas.length === 1 ? "" : "s"}`;
   const etiqueta = (t) => {
     if (t.estado === "vencida") return '<span class="badge vencida">Vencida</span>';
     if (t.estado === "hoy") return '<span class="badge hoy">Hoy</span>';
@@ -218,13 +215,13 @@ function pintarTareas() {
   };
   $("#tareas").innerHTML = lista.length ? lista.map((t) => `
     <div class="tarea-item" data-id="${esc(t.id)}">
-      <button class="check" title="Completar">✓</button>
+      <button class="check" title="Completar">${ico("check")}</button>
       <div class="tt"><div>${esc(t.titulo)}</div><div class="meta">${etiqueta(t)}<span>${esc(t.lista)}</span></div></div>
-      <button class="icon-btn enfocar" title="Enfocarme en esta" style="width:34px;height:34px;font-size:15px">🎯</button>
+      <button class="icon-btn chico fantasma enfocar" title="Enfocarme en esta">${ico("reloj")}</button>
     </div>`).join("")
-    : '<p style="color:var(--muted);margin:6px 0">Nada por aquí. 🎉</p>';
+    : '<p class="vacio" style="padding:10px 0">No hay tareas en esta vista.</p>';
   const hechas = datos.completadas;
-  $("#hechas-hoy").innerHTML = hechas.length ? "✅ Hechas hoy: " + hechas.map((t) => `<s>${esc(t)}</s>`).join(", ") : "";
+  $("#hechas-hoy").innerHTML = hechas.length ? "Completadas hoy: " + hechas.map((t) => `<s>${esc(t)}</s>`).join(", ") : "";
 
   $$("#tareas .tarea-item").forEach((el) => {
     const t = datos.tareas.find((x) => x.id === el.dataset.id);
@@ -269,14 +266,19 @@ $("#form-nueva").addEventListener("submit", async (e) => {
 
 // ---------------------------------------------------------------- pomodoro
 
+function botonPomo(estado) {
+  $("#pomo-iniciar").innerHTML = estado === "pausar" ? ico("pausa") + "Pausar" : ico("play") + (estado === "seguir" ? "Seguir" : "Empezar");
+}
+
 const pomo = { duracion: 25 * 60, restante: 25 * 60, timer: null, fin: 0, modo: 25 };
 
 function pintarReloj() {
   const m = Math.floor(pomo.restante / 60), s = pomo.restante % 60;
   $("#reloj").textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  document.title = pomo.timer ? `${$("#reloj").textContent} · Organizador` : "Organizador";
+  document.title = pomo.timer ? `${$("#reloj").textContent} · Orga` : "Orga";
+  $("#reloj-arco").style.strokeDashoffset = 678.6 * (1 - pomo.restante / pomo.duracion);
   const ciclos = leer("pomodoros-" + hoyClave(), 0);
-  $("#ciclos").textContent = `${ciclos} pomodoro${ciclos === 1 ? "" : "s"} hoy 🍅`;
+  $("#ciclos").textContent = `${ciclos} pomodoro${ciclos === 1 ? "" : "s"} hoy`;
 }
 
 function sonar() {
@@ -298,12 +300,12 @@ function tick() {
   pintarReloj();
   if (pomo.restante === 0) {
     clearInterval(pomo.timer); pomo.timer = null;
-    $("#pomo-iniciar").textContent = "▶ Empezar";
+    botonPomo("empezar");
     sonar();
     if (pomo.modo === 25) {
       guardar("pomodoros-" + hoyClave(), leer("pomodoros-" + hoyClave(), 0) + 1);
       toast("🍅 ¡Pomodoro terminado! Toma una pausa.");
-      if ("Notification" in window && Notification.permission === "granted") new Notification("¡Pomodoro terminado! 🍅 Toma una pausa.");
+      if ("Notification" in window && Notification.permission === "granted") new Notification("Pomodoro terminado. Toma una pausa.");
     } else {
       toast("⏰ Pausa terminada, ¡a seguir!");
     }
@@ -315,19 +317,19 @@ function tick() {
 $("#pomo-iniciar").onclick = () => {
   if (pomo.timer) {
     clearInterval(pomo.timer); pomo.timer = null;
-    $("#pomo-iniciar").textContent = "▶ Seguir";
+    botonPomo("seguir");
   } else {
     if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
     pomo.fin = Date.now() + pomo.restante * 1000;
     pomo.timer = setInterval(tick, 500);
-    $("#pomo-iniciar").textContent = "⏸ Pausar";
+    botonPomo("pausar");
   }
   pintarReloj();
 };
 $("#pomo-reiniciar").onclick = () => {
   clearInterval(pomo.timer); pomo.timer = null;
   pomo.restante = pomo.duracion;
-  $("#pomo-iniciar").textContent = "▶ Empezar";
+  botonPomo("empezar");
   pintarReloj();
 };
 $$(".modos .chip").forEach((b) => b.onclick = () => {
@@ -335,7 +337,7 @@ $$(".modos .chip").forEach((b) => b.onclick = () => {
   clearInterval(pomo.timer); pomo.timer = null;
   pomo.modo = Number(b.dataset.min);
   pomo.duracion = pomo.restante = pomo.modo * 60;
-  $("#pomo-iniciar").textContent = "▶ Empezar";
+  botonPomo("empezar");
   pintarReloj();
 });
 
@@ -355,11 +357,12 @@ async function cargarCoach(nuevo) {
     const r = await api("/api/motivacion" + (nuevo ? "?nuevo=1" : ""));
     const m = r.motivacion;
     if (!m) { $("#card-coach").hidden = true; return; }
-    $("#coach-titulo").textContent = m.titulo;
+    $("#coach-titulo").textContent = sinEmoji(m.titulo);
     $("#coach-msg").textContent = m.mensaje;
     $("#coach-enfoque").innerHTML = m.enfoque.map((p, i) => `<div class="paso"><b>${i + 1}</b><span>${esc(p)}</span></div>`).join("");
   } catch (e) {
-    $("#coach-titulo").textContent = "Hoy es un buen día para avanzar 💪";
+    $("#coach-titulo").textContent = "Hoy es un buen día para avanzar";
+    $("#coach-enfoque").innerHTML = "";
     $("#coach-msg").textContent = e.message;
   }
 }
@@ -372,13 +375,13 @@ function pintarMetas() {
   const lista = datos.metas || [];
   $("#metas").innerHTML = lista.length ? lista.map((m) => `
     <div class="meta-item" data-id="${esc(m.id)}">
-      <div class="ico">🏁</div>
+      <div class="ico">${ico("meta")}</div>
       <div class="mt"><b>${esc(m.texto)}</b>${m.porque ? `<small>${esc(m.porque)}</small>` : ""}
-        ${datos.agente ? '<button class="link plan-meta">✨ Pedir a Orga un plan para esta meta</button>' : ""}
+        ${datos.agente ? `<button class="link plan-meta">${ico("chispa")}Pedir a Orga un plan para esta meta</button>` : ""}
       </div>
-      <button class="icon-btn quitar" title="Quitar" style="width:32px;height:32px;font-size:14px">✕</button>
+      <button class="icon-btn chico fantasma quitar" title="Quitar">${ico("x")}</button>
     </div>`).join("")
-    : '<p style="color:var(--muted);margin:0 0 6px">Escribe 1 a 3 metas (estudios, salud, dinero, personal…). Orga te dirá cada día qué hacer para cumplirlas. 🚀</p>';
+    : '<p class="vacio" style="margin-bottom:10px">Todavía no tienes metas. Empieza con una a tres: estudios, salud, dinero o algo personal.</p>';
   $$("#metas .meta-item").forEach((el) => {
     const m = lista.find((x) => x.id === el.dataset.id);
     el.querySelector(".quitar").onclick = async () => {
@@ -408,20 +411,20 @@ $("#form-meta").addEventListener("submit", async (e) => {
 
 // ---------------------------------------------------------------- agente (chat)
 
-const BIENVENIDA = "¡Hola! Soy Orga 🦊, tu agente de productividad. Conozco tu agenda, tus tareas y tus metas, y puedo crear, mover y completar cosas por ti. ¿Por dónde empezamos?";
+const BIENVENIDA = "Hola, soy Orga, tu agente personal de productividad. Conozco tu agenda, tus tareas y tus metas, y puedo crear, mover y completar cosas por ti. ¿Por dónde empezamos?";
 
 function pintarChat() {
   const caja = $("#mensajes");
   if (datos && !datos.ia) {
-    caja.innerHTML = '<div class="msg assistant">🔑 Para activar a Orga falta la clave gratuita de Gemini (GEMINI_API_KEY). Todo lo demás de la app ya funciona.</div>';
+    caja.innerHTML = '<div class="msg assistant">Para activar a Orga falta la clave gratuita de Gemini (GEMINI_API_KEY). Todo lo demás de la app ya funciona.</div>';
     $("#form-chat").style.display = "none";
     $("#acciones-rapidas").style.display = "none";
     return;
   }
-  $("#agente-modo").textContent = datos && datos.agente ? "agente con IA" : "asistente";
+  $("#agente-modo").innerHTML = '<i class="punto"></i>' + (datos && datos.agente ? "En línea · puede actuar en tu Calendar y Tasks" : "Asistente");
   caja.innerHTML = `<div class="msg assistant">${esc(BIENVENIDA)}</div>` + chat.map((m) => `
-    <div class="msg ${m.role}">${m.foto ? "📷 " : ""}${esc(m.content)}${m.acciones && m.acciones.length
-      ? `<div class="acciones">${m.acciones.map((a) => `<span class="accion">${esc(a)}</span>`).join("")}</div>` : ""}</div>`).join("");
+    <div class="msg ${m.role}">${m.role === "assistant" ? md(m.content) : esc(m.content)}${m.foto && !m.role.startsWith("a") ? " <small>(con imagen)</small>" : ""}${m.acciones && m.acciones.length
+      ? `<div class="acciones">${m.acciones.map((a) => `<span class="accion">${ico("check")}${esc(sinEmoji(a))}</span>`).join("")}</div>` : ""}</div>`).join("");
   caja.scrollTop = caja.scrollHeight;
 }
 
@@ -502,7 +505,7 @@ $("#input-foto").addEventListener("change", (e) => {
 // ---------------------------------------------------------------- voz
 
 let vozSalida = leer("voz-salida", false);
-function pintarVozSalida() { $("#btn-voz-salida").textContent = vozSalida ? "🔊" : "🔇"; }
+function pintarVozSalida() { $("#btn-voz-salida").innerHTML = ico(vozSalida ? "voz" : "voz-off"); }
 $("#btn-voz-salida").onclick = () => {
   vozSalida = !vozSalida; guardar("voz-salida", vozSalida); pintarVozSalida();
   toast(vozSalida ? "🔊 Orga leerá sus respuestas" : "🔇 Respuestas sin voz");
@@ -530,7 +533,7 @@ $("#btn-mic").onclick = () => {
   reco.continuous = false;
   let final = "";
   $("#btn-mic").classList.add("escuchando");
-  $("#chat-input").placeholder = "Te escucho… 🎙️";
+  $("#chat-input").placeholder = "Te escucho…";
   reco.onresult = (e) => {
     let parcial = "";
     for (const r of e.results) { if (r.isFinal) final = r[0].transcript; else parcial += r[0].transcript; }
@@ -553,21 +556,22 @@ $("#btn-mic").onclick = () => {
 
 function irA(vista) {
   $$(".vista").forEach((v) => v.classList.toggle("activa", v.dataset.vista === vista));
-  $$("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.vista === vista));
+  $$("#tabs button, #nav button").forEach((b) => b.classList.toggle("on", b.dataset.vista === vista));
   guardar("vista", vista);
   window.scrollTo({ top: 0 });
 }
-$("#tabs").addEventListener("click", (e) => {
+["#tabs", "#nav"].forEach((sel) => $(sel).addEventListener("click", (e) => {
   const b = e.target.closest("button");
   if (b) irA(b.dataset.vista);
-});
+}));
 
-$("#btn-recargar").onclick = () => { toast("Actualizando…"); cargar(true); };
+$$(".js-recargar").forEach((b) => b.onclick = () => { toast("Actualizando…"); cargar(true); });
 
 // ---------------------------------------------------------------- inicio
 
 chat = leer("chat-" + hoyClave(), []);
 pintarVozSalida();
+botonPomo("empezar");
 pintarReloj();
 irA(leer("vista", "hoy"));
 cargar();

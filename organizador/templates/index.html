@@ -3,141 +3,221 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Organizador</title>
+  <title>Orga</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="{{ url_for('static', filename='icono.svg') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icono.svg') }}">
-  <meta name="theme-color" content="#d9683b">
+  <meta name="theme-color" content="#4f46e5">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=5">
 </head>
 <body>
-<div class="app">
-  <header class="top">
-    <div class="saludo">
-      <h1 id="saludo">Hola 👋</h1>
-      <p id="fecha">Cargando tu día…</p>
+
+<!-- Íconos -->
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="grad-marca" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6366f1"/><stop offset=".55" stop-color="#8b5cf6"/><stop offset="1" stop-color="#d946ef"/>
+    </linearGradient>
+  </defs>
+  <symbol id="i-inicio" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></symbol>
+  <symbol id="i-chispa" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4M22 5h-4"/></symbol>
+  <symbol id="i-meta" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-tareas" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4M3 7l2 2 4-4M13 6h8M13 12h8M13 18h8"/></symbol>
+  <symbol id="i-reloj" viewBox="0 0 24 24"><path d="M10 2h4M12 14l3-3"/><circle cx="12" cy="14" r="8"/></symbol>
+  <symbol id="i-recargar" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M8 16H3v5"/></symbol>
+  <symbol id="i-salir" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3ZM19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></symbol>
+  <symbol id="i-enviar" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4ZM22 2 11 13"/></symbol>
+  <symbol id="i-voz" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
+  <symbol id="i-voz-off" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5zM22 9l-6 6M16 9l6 6"/></symbol>
+  <symbol id="i-borrar" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="i-mas" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-calendario" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-idea" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5M9 18h6M10 22h4"/></symbol>
+  <symbol id="i-rayo" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+  <symbol id="i-luna" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-fuego" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 3l14 9-14 9V3z"/></symbol>
+  <symbol id="i-pausa" viewBox="0 0 24 24"><rect x="5" y="3" width="5" height="18" rx="1"/><rect x="14" y="3" width="5" height="18" rx="1"/></symbol>
+  <symbol id="i-reiniciar" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5"/></symbol>
+  <symbol id="i-flecha" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+  <symbol id="i-campana" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-caja" viewBox="0 0 24 24"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></symbol>
+  <symbol id="i-logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="url(#grad-marca)" stroke="none"/><path d="M9.5 16.5l4.2 4.2 8.8-9.4" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="marca">
+      <svg class="logo"><use href="#i-logo"/></svg>
+      <div><b>Orga</b><span>Asistente personal</span></div>
     </div>
-    <div class="top-acciones">
-      <button class="icon-btn" id="btn-recargar" title="Actualizar">↻</button>
-      <a class="icon-btn" href="/salir" title="Salir" style="text-decoration:none">🚪</a>
+    <nav class="nav" id="nav">
+      <button data-vista="hoy"><svg class="ic"><use href="#i-inicio"/></svg>Hoy</button>
+      <button data-vista="agente"><svg class="ic"><use href="#i-chispa"/></svg>Orga, tu agente</button>
+      <button data-vista="metas"><svg class="ic"><use href="#i-meta"/></svg>Metas</button>
+      <button data-vista="tareas"><svg class="ic"><use href="#i-tareas"/></svg>Tareas</button>
+      <button data-vista="enfoque"><svg class="ic"><use href="#i-reloj"/></svg>Enfoque</button>
+    </nav>
+    <div class="side-pie">
+      <button class="js-recargar"><svg class="ic"><use href="#i-recargar"/></svg>Actualizar</button>
+      <a href="/salir"><svg class="ic"><use href="#i-salir"/></svg>Cerrar sesión</a>
     </div>
-  </header>
+  </aside>
 
-  <div id="cargando" class="cargando"><span class="spinner"></span> Leyendo tu calendario y tus tareas…</div>
+  <div class="main">
+    <header class="topbar">
+      <div class="marca">
+        <svg class="logo"><use href="#i-logo"/></svg>
+        <b>Orga</b>
+      </div>
+      <div class="top-acciones">
+        <button class="icon-btn js-recargar" title="Actualizar"><svg class="ic"><use href="#i-recargar"/></svg></button>
+        <a class="icon-btn" href="/salir" title="Cerrar sesión"><svg class="ic"><use href="#i-salir"/></svg></a>
+      </div>
+    </header>
 
-  <div id="conectar" class="aviso" hidden>
-    <h2>Conecta tu Google 🔗</h2>
-    <p>Para ver tu calendario y tus tareas, inicia sesión con tu cuenta de Google. Solo se hace una vez.</p>
-    <a class="btn" href="/google/conectar" style="text-decoration:none">Conectar con Google</a>
-  </div>
+    <div id="cargando" class="cargando"><span class="spinner"></span> Preparando tu día…</div>
 
-  <div id="contenido" class="grid" hidden>
-    <div class="col">
-      <section class="vista activa" data-vista="hoy">
-        <div class="card coach" id="card-coach" hidden>
-          <div class="coach-top">
-            <div class="avatar">🦊</div>
-            <div>
-              <div class="coach-nombre">Orga, tu coach</div>
-              <div class="coach-titulo" id="coach-titulo">Preparando tu mensaje…</div>
-            </div>
-            <button class="icon-btn" id="coach-otro" title="Otro mensaje" style="margin-left:auto">↻</button>
+    <div id="conectar" class="aviso" hidden>
+      <h2>Conecta tu cuenta de Google</h2>
+      <p>Para ver tu calendario y tus tareas, inicia sesión con Google. Solo se hace una vez.</p>
+      <a class="btn" href="/google/conectar">Conectar con Google</a>
+    </div>
+
+    <div id="contenido" hidden>
+
+      <!-- ============ HOY ============ -->
+      <section class="vista" data-vista="hoy">
+        <div class="page-head">
+          <div>
+            <p class="eyebrow" id="fecha">&nbsp;</p>
+            <h1 id="saludo">Hola</h1>
           </div>
-          <p class="coach-msg" id="coach-msg"></p>
-          <div class="coach-enfoque" id="coach-enfoque"></div>
-          <button class="btn sec block" id="coach-hablar">💬 Hablar con Orga</button>
+          <button class="btn" id="coach-hablar"><svg class="ic"><use href="#i-chispa"/></svg>Hablar con Orga</button>
         </div>
 
-        <div class="card">
-          <h2>Tu progreso de hoy <span class="sub" id="hora"></span></h2>
-          <div class="progreso">
+        <div class="kpis">
+          <div class="kpi">
             <div class="anillo">
-              <svg width="92" height="92" viewBox="0 0 92 92">
-                <circle cx="46" cy="46" r="38" fill="none" stroke="var(--line)" stroke-width="9"/>
-                <circle id="anillo-arco" cx="46" cy="46" r="38" fill="none" stroke="var(--ok)" stroke-width="9"
-                        stroke-linecap="round" stroke-dasharray="238.76" stroke-dashoffset="238.76"
-                        style="transition: stroke-dashoffset .6s"/>
+              <svg width="56" height="56" viewBox="0 0 56 56">
+                <circle cx="28" cy="28" r="24" fill="none" stroke="var(--line)" stroke-width="6"/>
+                <circle id="anillo-arco" cx="28" cy="28" r="24" fill="none" stroke="url(#grad-marca)" stroke-width="6"
+                        stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="150.8"/>
               </svg>
-              <div class="num"><div><span id="pct">0%</span><small>del día</small></div></div>
             </div>
-            <div class="stats">
-              <div class="stat"><b id="st-hechas">0</b><span>hechas</span></div>
-              <div class="stat"><b id="st-urgentes">0</b><span>urgentes</span></div>
-              <div class="stat"><b id="st-eventos">0</b><span>eventos</span></div>
+            <div><b id="pct">0%</b><span>Avance</span></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-ic ok"><svg class="ic"><use href="#i-check"/></svg></div>
+            <div><b id="st-hechas">0</b><span>Hechas hoy</span></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-ic warn"><svg class="ic"><use href="#i-fuego"/></svg></div>
+            <div><b id="st-urgentes">0</b><span>Urgentes</span></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-ic info"><svg class="ic"><use href="#i-campana"/></svg></div>
+            <div class="kpi-prox"><b id="kpi-prox-cuando">—</b><span id="kpi-prox-titulo">Sin pendientes próximos</span></div>
+          </div>
+        </div>
+
+        <div class="dash">
+          <div class="dash-col">
+            <div class="card coach" id="card-coach" hidden>
+              <div class="coach-top">
+                <div class="avatar"><svg class="ic"><use href="#i-chispa"/></svg></div>
+                <div class="coach-nombre">Mensaje de Orga para hoy</div>
+                <button class="icon-btn fantasma" id="coach-otro" title="Otro mensaje"><svg class="ic"><use href="#i-recargar"/></svg></button>
+              </div>
+              <div class="coach-titulo" id="coach-titulo">Preparando tu mensaje…</div>
+              <p class="coach-msg" id="coach-msg"></p>
+              <div class="coach-enfoque" id="coach-enfoque"></div>
+            </div>
+
+            <div class="card" id="card-plan">
+              <div class="card-head"><h2>Plan del día</h2><span class="sub" id="plan-hora"></span></div>
+              <div id="plan"></div>
             </div>
           </div>
-          <p class="frase" id="frase"></p>
-        </div>
 
-        <div class="card">
-          <h2>📌 Próximos pendientes <span class="sub">de todos tus calendarios</span></h2>
-          <div id="proximos"></div>
-        </div>
-
-        <div class="card" id="card-plan">
-          <h2>✨ Mi plan del día <span class="sub" id="plan-hora"></span></h2>
-          <div id="plan"></div>
-        </div>
-
-        <div class="card">
-          <h2>📅 Agenda de hoy</h2>
-          <div id="agenda"></div>
+          <div class="dash-col">
+            <div class="card">
+              <div class="card-head"><h2>Próximos pendientes</h2><span class="sub">30 días</span></div>
+              <div id="proximos"></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h2>Agenda de hoy</h2><span class="sub" id="agenda-cuenta"></span></div>
+              <div id="agenda"></div>
+            </div>
+          </div>
         </div>
       </section>
-    </div>
 
-    <div class="col">
+      <!-- ============ AGENTE ============ -->
       <section class="vista" data-vista="agente">
         <div class="card chat">
-          <h2><span>🦊 Orga <span class="sub" id="agente-modo">tu agente</span></span>
-            <span style="display:flex;gap:6px">
-              <button class="icon-btn" id="btn-voz-salida" title="Leer respuestas en voz alta">🔇</button>
-              <button class="icon-btn" id="btn-chat-nuevo" title="Nueva conversación">🧹</button>
-            </span>
-          </h2>
-          <div class="acciones-rapidas" id="acciones-rapidas">
-            <button class="rapida" data-p="¿Qué debería hacer ahora mismo para avanzar en mis metas?">⚡<span>¿Qué hago ahora?</span></button>
-            <button class="rapida" data-p="Planifica mi semana: reparte mis tareas y mis metas en bloques realistas en mi calendario para los próximos 7 días.">🗓️<span>Planifica mi semana</span></button>
-            <button class="rapida" data-p="Hagamos la revisión del día: qué logré, qué quedó pendiente y a qué día lo movemos.">🌙<span>Revisión del día</span></button>
-            <button class="rapida" data-p="Estoy sin ganas y me cuesta empezar. Ayúdame con algo pequeño y motívame.">💪<span>Motívame</span></button>
+          <div class="chat-head">
+            <div class="avatar"><svg class="ic"><use href="#i-chispa"/></svg></div>
+            <div class="chat-quien"><b>Orga</b><span id="agente-modo"><i class="punto"></i>Tu agente personal</span></div>
+            <button class="icon-btn" id="btn-voz-salida" title="Leer respuestas en voz alta"></button>
+            <button class="icon-btn" id="btn-chat-nuevo" title="Nueva conversación"><svg class="ic"><use href="#i-borrar"/></svg></button>
           </div>
           <div class="mensajes" id="mensajes"></div>
+          <div class="acciones-rapidas" id="acciones-rapidas">
+            <button class="rapida" data-p="¿Qué debería hacer ahora mismo para avanzar en mis metas?"><svg class="ic"><use href="#i-rayo"/></svg>¿Qué hago ahora?</button>
+            <button class="rapida" data-p="Planifica mi semana: reparte mis tareas y mis metas en bloques realistas en mi calendario para los próximos 7 días."><svg class="ic"><use href="#i-calendario"/></svg>Planifica mi semana</button>
+            <button class="rapida" data-p="Hagamos la revisión del día: qué logré, qué quedó pendiente y a qué día lo movemos."><svg class="ic"><use href="#i-luna"/></svg>Revisión del día</button>
+            <button class="rapida" data-p="Estoy sin ganas y me cuesta empezar. Ayúdame con algo pequeño y motívame."><svg class="ic"><use href="#i-fuego"/></svg>Motívame</button>
+          </div>
           <div class="adjunto" id="adjunto" hidden>
             <img id="adjunto-img" alt="Imagen adjunta">
             <span>Imagen lista para enviar</span>
-            <button type="button" class="icon-btn" id="adjunto-quitar" title="Quitar">✕</button>
+            <button type="button" class="icon-btn" id="adjunto-quitar" title="Quitar"><svg class="ic"><use href="#i-x"/></svg></button>
           </div>
-          <form id="form-chat">
+          <form id="form-chat" class="compositor">
             <input type="file" id="input-foto" accept="image/*" hidden>
-            <button class="icon-btn" type="button" id="btn-foto" title="Enviar una foto">📎</button>
-            <button class="icon-btn mic" type="button" id="btn-mic" title="Hablar">🎤</button>
+            <button class="icon-btn fantasma" type="button" id="btn-foto" title="Enviar una foto"><svg class="ic"><use href="#i-clip"/></svg></button>
+            <button class="icon-btn fantasma mic" type="button" id="btn-mic" title="Hablar"><svg class="ic"><use href="#i-mic"/></svg></button>
             <input type="text" id="chat-input" placeholder="Escríbele o háblale a Orga…" maxlength="2000" autocomplete="off">
-            <button class="btn" type="submit">➤</button>
+            <button class="btn enviar" type="submit" title="Enviar"><svg class="ic"><use href="#i-enviar"/></svg></button>
           </form>
         </div>
       </section>
 
-      <section class="vista" data-vista="metas">
-        <div class="card">
-          <h2>🏁 Mis metas <span class="sub">Orga te guía según ellas</span></h2>
-          <div id="metas"></div>
-          <form id="form-meta" class="form-meta">
-            <input type="text" id="meta-texto" placeholder="Ej: Aprobar Machine Learning con 16" maxlength="200">
-            <input type="text" id="meta-porque" placeholder="¿Por qué es importante para ti? (opcional)" maxlength="300">
-            <button class="btn block" type="submit">+ Agregar meta</button>
-          </form>
+      <!-- ============ METAS ============ -->
+      <section class="vista estrecha" data-vista="metas">
+        <div class="page-head">
+          <div><p class="eyebrow">Tu dirección</p><h1>Metas</h1></div>
         </div>
+        <p class="intro">Orga usa tus metas para decirte cada día qué hacer primero y para planificar tu semana.</p>
+        <div id="metas"></div>
+        <form id="form-meta" class="card form-meta">
+          <h2>Nueva meta</h2>
+          <input type="text" id="meta-texto" placeholder="Ej: Aprobar Econometría con 16" maxlength="200">
+          <input type="text" id="meta-porque" placeholder="¿Por qué es importante para ti? (opcional)" maxlength="300">
+          <button class="btn" type="submit"><svg class="ic"><use href="#i-mas"/></svg>Agregar meta</button>
+        </form>
       </section>
 
-      <section class="vista" data-vista="tareas">
+      <!-- ============ TAREAS ============ -->
+      <section class="vista estrecha" data-vista="tareas">
+        <div class="page-head">
+          <div><p class="eyebrow" id="tareas-cuenta">&nbsp;</p><h1>Tareas</h1></div>
+        </div>
         <div class="card">
-          <h2>📝 Tareas <span class="sub" id="tareas-cuenta"></span></h2>
           <form class="nueva" id="form-nueva">
-            <input type="text" id="nueva-titulo" placeholder="Nueva tarea…" maxlength="300">
-            <button class="btn" type="submit">+</button>
+            <input type="text" id="nueva-titulo" placeholder="Agregar una tarea…" maxlength="300">
+            <label class="chk-hoy"><input type="checkbox" id="nueva-hoy">Para hoy</label>
+            <button class="btn" type="submit" title="Agregar"><svg class="ic"><use href="#i-mas"/></svg></button>
           </form>
-          <label class="chk-hoy"><input type="checkbox" id="nueva-hoy"> Que venza hoy</label>
           <div class="filtros" id="filtros">
             <button class="chip on" data-f="todas">Todas</button>
             <button class="chip" data-f="urgentes">Urgentes</button>
@@ -148,21 +228,33 @@
         </div>
       </section>
 
-      <section class="vista" data-vista="enfoque">
+      <!-- ============ ENFOQUE ============ -->
+      <section class="vista estrecha" data-vista="enfoque">
+        <div class="page-head">
+          <div><p class="eyebrow">Técnica Pomodoro</p><h1>Modo enfoque</h1></div>
+        </div>
         <div class="card pomodoro">
-          <h2>🎯 Modo enfoque <span class="sub">Pomodoro</span></h2>
           <div class="modos">
-            <button class="chip on" data-min="25">Enfoque 25</button>
-            <button class="chip" data-min="5">Pausa 5</button>
-            <button class="chip" data-min="15">Pausa 15</button>
+            <button class="chip on" data-min="25">Enfoque · 25</button>
+            <button class="chip" data-min="5">Pausa · 5</button>
+            <button class="chip" data-min="15">Pausa · 15</button>
           </div>
-          <div class="reloj" id="reloj">25:00</div>
-          <div class="pomo-tarea" id="pomo-tarea">Elige una tarea con 🎯 o simplemente empieza</div>
+          <div class="reloj-caja">
+            <svg viewBox="0 0 240 240">
+              <circle cx="120" cy="120" r="108" fill="none" stroke="var(--line)" stroke-width="10"/>
+              <circle id="reloj-arco" cx="120" cy="120" r="108" fill="none" stroke="url(#grad-marca)" stroke-width="10"
+                      stroke-linecap="round" stroke-dasharray="678.6" stroke-dashoffset="0"/>
+            </svg>
+            <div class="reloj-centro">
+              <div class="reloj" id="reloj">25:00</div>
+              <div class="ciclos" id="ciclos">0 pomodoros hoy</div>
+            </div>
+          </div>
+          <div class="pomo-tarea" id="pomo-tarea">Elige una tarea desde «Tareas» o simplemente empieza</div>
           <div class="fila-btn">
-            <button class="btn" id="pomo-iniciar">▶ Empezar</button>
-            <button class="btn sec" id="pomo-reiniciar">↺</button>
+            <button class="btn grande" id="pomo-iniciar"></button>
+            <button class="btn sec grande" id="pomo-reiniciar" title="Reiniciar"><svg class="ic"><use href="#i-reiniciar"/></svg></button>
           </div>
-          <div class="ciclos" id="ciclos">0 pomodoros hoy</div>
         </div>
       </section>
 
@@ -171,14 +263,14 @@
 </div>
 
 <nav class="tabs" id="tabs">
-  <button class="on" data-vista="hoy"><span class="i">☀️</span>Hoy</button>
-  <button data-vista="agente"><span class="i">🦊</span>Orga</button>
-  <button data-vista="metas"><span class="i">🏁</span>Metas</button>
-  <button data-vista="tareas"><span class="i">📝</span>Tareas</button>
-  <button data-vista="enfoque"><span class="i">🎯</span>Enfoque</button>
+  <button data-vista="hoy"><svg class="ic"><use href="#i-inicio"/></svg>Hoy</button>
+  <button data-vista="agente"><svg class="ic"><use href="#i-chispa"/></svg>Orga</button>
+  <button data-vista="metas"><svg class="ic"><use href="#i-meta"/></svg>Metas</button>
+  <button data-vista="tareas"><svg class="ic"><use href="#i-tareas"/></svg>Tareas</button>
+  <button data-vista="enfoque"><svg class="ic"><use href="#i-reloj"/></svg>Enfoque</button>
 </nav>
 
 <div class="toast" id="toast"></div>
-<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script src="{{ url_for('static', filename='app.js') }}?v=5"></script>
 </body>
 </html>

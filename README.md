@@ -37,7 +37,7 @@ Además de la terminal, el Organizador tiene una **app web** con:
 - ☀️ **Hoy:** tu progreso del día, el plan creado por Claude en una línea de tiempo y tu agenda.
 - 📝 **Tareas:** marca tareas como hechas, crea nuevas y filtra las urgentes.
 - 🎯 **Enfoque:** temporizador Pomodoro conectado a tus tareas.
-- 🦊 **Orga, tu agente:** coach motivador según tus metas. Le hablas (por texto o voz) y actúa en tu
+- ✨ **Orga, tu agente:** coach motivador según tus metas. Le hablas (por texto o voz) y actúa en tu
   Google Tasks y Calendar: crea, completa y mueve tareas, agenda bloques, planifica tu semana y hace la
   revisión del día. Usa Gemini (nivel gratuito de Google) con `GEMINI_API_KEY`.
 - 🏁 **Metas:** escribe tus metas y Orga te dice cada día qué hacer para cumplirlas.

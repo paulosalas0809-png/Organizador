@@ -3,21 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Organizador</title>
+  <title>Orga</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="{{ url_for('static', filename='icono.svg') }}">
-  <meta name="theme-color" content="#d9683b">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=5">
 </head>
 <body>
   <main class="login">
     <form class="card" method="post">
-      <div class="logo">🗓️</div>
-      <h1>Organizador</h1>
-      <p>Tu asistente para un día productivo</p>
+      <img class="logo" src="{{ url_for('static', filename='icono.svg') }}" alt="">
+      <h1>Orga</h1>
+      <p>Tu agente personal de productividad</p>
       {% if error %}<div class="error">{{ error }}</div>{% endif %}
       <input type="password" name="clave" placeholder="Contraseña" autocomplete="current-password" required autofocus>
-      <button class="btn block" type="submit">Entrar</button>
+      <button class="btn block grande" type="submit">Entrar</button>
     </form>
   </main>
 </body>

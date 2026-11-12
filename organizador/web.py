@@ -256,6 +256,7 @@ def api_hoy():
         + ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
            "septiembre", "octubre", "noviembre", "diciembre"][dia.month - 1],
         "hora": momento.strftime("%H:%M"),
+        "nombre": os.getenv("NOMBRE", "").strip(),
         "ia": ia_disponible(),
         "agente": gemini_disponible(),
         "google": False,
