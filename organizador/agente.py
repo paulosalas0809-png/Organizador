@@ -38,11 +38,11 @@ def _cliente() -> genai.Client:
     return genai.Client(api_key=os.environ["GEMINI_API_KEY"].strip())
 
 
-def _generar(contents, config: types.GenerateContentConfig):
+def _generar(contents, config: types.GenerateContentConfig, modelos: list[str] | None = None):
     """Llama a Gemini probando modelos de la lista si alguno no existe."""
     cliente = _cliente()
     ultimo = None
-    for modelo in MODELOS:
+    for modelo in modelos or MODELOS:
         try:
             return cliente.models.generate_content(model=modelo, contents=contents, config=config)
         except genai_errors.ClientError as e:
@@ -291,6 +291,51 @@ def transcribir(audio: bytes, mime: str = "audio/wav") -> str:
     )
     r = _generar([types.Part.from_bytes(data=audio, mime_type=mime), "Transcribe este audio."], config)
     return (r.text or "").strip().strip('"')
+
+
+# ---------------------------------------------------------------- voz del agente
+
+MODELOS_VOZ = [m for m in [os.getenv("GEMINI_TTS_MODEL", "").strip(), "gemini-3.8-flash-tts",
+                           "gemini-3.1-flash-tts-preview", "gemini-2.5-flash-preview-tts"] if m]
+# Voces masculinas de Gemini: Achird (amigable), Algieba (suave), Charon (serena), Orus (firme), Puck (animada)
+VOZ_AGENTE = os.getenv("VOZ_AGENTE", "").strip() or "Achird"
+
+
+def hablar(texto: str) -> bytes:
+    """Convierte texto en audio WAV con una voz masculina natural."""
+    import io
+    import wave
+
+    config = types.GenerateContentConfig(
+        response_modalities=["AUDIO"],
+        speech_config=types.SpeechConfig(
+            voice_config=types.VoiceConfig(prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=VOZ_AGENTE))
+        ),
+    )
+    pedido = (
+        "Lee esto en español latino, como un coach hombre joven: voz cálida, cercana y natural, "
+        "con ritmo de conversación y energía positiva.\n\n" + texto
+    )
+    r = _generar(pedido, config, MODELOS_VOZ)
+    try:
+        parte = r.candidates[0].content.parts[0].inline_data
+        pcm, mime = parte.data, parte.mime_type or ""
+    except (AttributeError, IndexError, TypeError):
+        raise ErrorIA("No se pudo generar la voz.")
+    if not pcm:
+        raise ErrorIA("No se pudo generar la voz.")
+    if "wav" in mime:
+        return pcm
+    tasa = 24000
+    if "rate=" in mime:
+        tasa = int(mime.split("rate=")[1].split(";")[0])
+    salida = io.BytesIO()
+    with wave.open(salida, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(tasa)
+        w.writeframes(pcm)
+    return salida.getvalue()
 
 
 # ---------------------------------------------------------------- mensaje motivador del día

@@ -443,9 +443,10 @@ function pintarChat() {
     return;
   }
   $("#agente-modo").innerHTML = '<i class="punto"></i>' + (datos && datos.agente ? "En línea · puede actuar en tu Calendar y Tasks" : "Asistente");
-  caja.innerHTML = `<div class="msg assistant">${esc(BIENVENIDA)}</div>` + chat.map((m) => `
+  caja.innerHTML = `<div class="msg assistant">${esc(BIENVENIDA)}</div>` + chat.map((m, i) => `
     <div class="msg ${m.role}">${m.role === "assistant" ? md(m.content) : esc(m.content)}${m.foto && !m.role.startsWith("a") ? " <small>(con imagen)</small>" : ""}${m.acciones && m.acciones.length
-      ? `<div class="acciones">${m.acciones.map((a) => `<span class="accion">${ico("check")}${esc(sinEmoji(a))}</span>`).join("")}</div>` : ""}</div>`).join("");
+      ? `<div class="acciones">${m.acciones.map((a) => `<span class="accion">${ico("check")}${esc(sinEmoji(a))}</span>`).join("")}</div>` : ""}${m.role === "assistant" && datos && datos.agente
+      ? `<button class="escuchar" data-i="${i}" title="Escuchar">${ico("voz")}<span>Escuchar</span></button>` : ""}</div>`).join("");
   caja.scrollTop = caja.scrollHeight;
 }
 
@@ -530,18 +531,67 @@ function pintarVozSalida() { $("#btn-voz-salida").innerHTML = ico(vozSalida ? "v
 $("#btn-voz-salida").onclick = () => {
   vozSalida = !vozSalida; guardar("voz-salida", vozSalida); pintarVozSalida();
   toast(vozSalida ? "🔊 Orga leerá sus respuestas" : "🔇 Respuestas sin voz");
-  if (!vozSalida && window.speechSynthesis) speechSynthesis.cancel();
+  if (!vozSalida) callarVoz();
 };
-function hablar(texto) {
-  if (!vozSalida || !window.speechSynthesis) return;
-  const limpio = texto.replace(/\p{Extended_Pictographic}|[*_#]/gu, "");
-  const u = new SpeechSynthesisUtterance(limpio);
+// La voz se genera en el servidor (voz masculina natural). Si falla, se usa la del dispositivo.
+const audioOrga = new Audio();
+let vozPedido = 0;
+
+function textoParaVoz(texto) {
+  return sinEmoji(texto).replace(/[*_#`>]/g, "").replace(/•/g, ",").replace(/\s+/g, " ").trim();
+}
+
+function callarVoz() {
+  vozPedido++;
+  audioOrga.pause();
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  $$(".escuchar.sonando").forEach((b) => b.classList.remove("sonando"));
+}
+
+function vozDelDispositivo(texto) {
+  if (!window.speechSynthesis) return;
+  const voces = speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith("es"));
+  const hombre = /jorge|diego|pablo|alvaro|álvaro|raul|raúl|carlos|juan|enrique|alonso|tomas|tomás|jaime|gerardo|male|hombre/i;
+  const u = new SpeechSynthesisUtterance(texto);
   u.lang = "es-PE";
-  const voz = speechSynthesis.getVoices().find((v) => v.lang.startsWith("es"));
-  if (voz) u.voice = voz;
-  speechSynthesis.cancel();
+  u.voice = voces.find((v) => hombre.test(v.name)) || voces[0] || null;
+  u.pitch = 0.85; u.rate = 1.02;
   speechSynthesis.speak(u);
 }
+
+async function decir(texto, boton) {
+  callarVoz();
+  const limpio = textoParaVoz(texto);
+  if (!limpio) return;
+  const pedido = vozPedido;
+  if (boton) boton.classList.add("sonando");
+  const terminar = () => { if (boton) boton.classList.remove("sonando"); };
+  try {
+    const r = await fetch("/api/hablar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ texto: limpio }) });
+    if (!r.ok) throw new Error("sin voz");
+    const url = URL.createObjectURL(await r.blob());
+    if (pedido !== vozPedido) { URL.revokeObjectURL(url); return; }
+    audioOrga.src = url;
+    audioOrga.onended = audioOrga.onerror = () => { URL.revokeObjectURL(url); terminar(); };
+    await audioOrga.play();
+  } catch (e) {
+    if (pedido !== vozPedido) return;
+    terminar();
+    vozDelDispositivo(limpio);
+  }
+}
+
+function hablar(texto) {
+  if (vozSalida) decir(texto);
+}
+
+$("#mensajes").addEventListener("click", (e) => {
+  const b = e.target.closest(".escuchar");
+  if (!b) return;
+  if (b.classList.contains("sonando")) { callarVoz(); return; }
+  const m = chat[Number(b.dataset.i)];
+  if (m) decir(m.content, b);
+});
 
 // ---- mensajes de voz: se graba el audio, se convierte a WAV y Orga lo transcribe
 

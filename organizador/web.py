@@ -24,7 +24,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import cargar_config
 from .google_api import SCOPES, Google, Tarea, huecos_libres
-from .agente import Agente, ErrorIA, Metas, gemini_disponible, motivacion_del_dia, plan_con_gemini, transcribir
+from .agente import Agente, ErrorIA, Metas, gemini_disponible, hablar, motivacion_del_dia, plan_con_gemini, transcribir
 from .planificador import DIAS, construir_contexto, conversar, generar_plan, plan_sin_ia
 
 EN_SERVIDOR = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("EN_SERVIDOR"))
@@ -481,6 +481,19 @@ def api_voz():
     if not texto:
         return jsonify(error="No logré entender el audio. Intenta hablar más cerca del micrófono."), 422
     return jsonify(texto=texto)
+
+
+@app.post("/api/hablar")
+@requiere_login
+def api_hablar():
+    """Devuelve el audio (WAV) de un texto leído con la voz del agente."""
+    if not gemini_disponible():
+        return jsonify(error="La voz necesita la clave de Gemini."), 400
+    texto = ((request.json or {}).get("texto") or "").strip()[:1800]
+    if not texto:
+        return jsonify(error="No hay texto para leer."), 400
+    audio = hablar(texto)
+    return app.response_class(audio, mimetype="audio/wav", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/motivacion")
