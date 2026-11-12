@@ -128,6 +128,17 @@ def archivo_plan(dia: date):
     return cfg.carpeta_datos / f"plan-{dia.isoformat()}.json"
 
 
+def archivo_agenda(dia: date):
+    return cfg.carpeta_datos / f"agenda-{dia.isoformat()}.json"
+
+
+def agenda_cumplida(dia: date) -> set[str]:
+    """Ids de los eventos de ese día que marcaste como cumplidos."""
+    if archivo_agenda(dia).exists():
+        return set(json.loads(archivo_agenda(dia).read_text()))
+    return set()
+
+
 def requiere_login(f):
     @wraps(f)
     def envoltura(*a, **kw):
@@ -267,6 +278,7 @@ def api_hoy():
     g = Google(cfg, creds)
     eventos, tareas = datos_del_dia(g, dia)
     completadas = g.tareas_completadas_hoy(dia)
+    cumplidos = agenda_cumplida(dia)
     plan = None
     if archivo_plan(dia).exists():
         plan = json.loads(archivo_plan(dia).read_text())
@@ -274,6 +286,8 @@ def api_hoy():
         google=True,
         eventos=[
             {
+                "id": e.id,
+                "hecho": e.id in cumplidos,
                 "titulo": e.titulo,
                 "inicio": e.inicio.strftime("%H:%M"),
                 "fin": e.fin.strftime("%H:%M"),
@@ -371,6 +385,23 @@ def api_agendar():
     plan["agendado"] = True
     archivo_plan(dia).write_text(json.dumps(plan, ensure_ascii=False))
     return jsonify(creados=creados)
+
+
+@app.post("/api/agenda/marcar")
+@requiere_login
+def api_agenda_marcar():
+    datos = request.json or {}
+    evento_id = str(datos.get("id") or "")[:300]
+    if not evento_id:
+        return jsonify(error="Falta el evento."), 400
+    dia = ahora().date()
+    cumplidos = agenda_cumplida(dia)
+    if datos.get("hecho", True):
+        cumplidos.add(evento_id)
+    else:
+        cumplidos.discard(evento_id)
+    archivo_agenda(dia).write_text(json.dumps(sorted(cumplidos)))
+    return jsonify(ok=True)
 
 
 @app.post("/api/tareas/completar")

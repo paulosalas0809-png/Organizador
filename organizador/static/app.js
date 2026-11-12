@@ -110,9 +110,11 @@ function pintarTodo() {
 // ---------------------------------------------------------------- progreso
 
 function pintarProgreso() {
-  const hechas = datos.completadas.length;
+  const agendaHecha = datos.eventos.filter((e) => e.hecho).length;
+  const agendaPend = datos.eventos.length - agendaHecha;
+  const hechas = datos.completadas.length + agendaHecha;
   const urgentes = datos.tareas.filter((t) => t.estado === "vencida" || t.estado === "hoy").length;
-  const total = hechas + urgentes;
+  const total = hechas + urgentes + agendaPend;
   const pct = total ? Math.round((hechas / total) * 100) : (hechas ? 100 : 0);
   $("#pct").textContent = pct + "%";
   $("#anillo-arco").style.strokeDashoffset = 150.8 * (1 - pct / 100);
@@ -194,10 +196,29 @@ async function agendar() {
 function pintarAgenda() {
   const ev = datos.eventos;
   $("#agenda").innerHTML = ev.length
-    ? ev.map((e) => `<div class="evento-item"><div class="h">${e.todo_el_dia ? "Todo el día" : esc(e.inicio) + " – " + esc(e.fin)}</div>
+    ? ev.map((e) => `<div class="evento-item ${e.hecho ? "hecho" : ""}" data-id="${esc(e.id)}">
+        <button class="check" title="${e.hecho ? "Marcar como pendiente" : "Marcar como cumplido"}">${ico("check")}</button><div class="h">${e.todo_el_dia ? "Todo el día" : esc(e.inicio) + " – " + esc(e.fin)}</div>
         <div class="e">${esc(e.titulo)}${e.calendario && !e.organizador ? ` <small>· ${esc(e.calendario)}</small>` : ""}</div></div>`).join("")
     : '<p class="vacio">Sin eventos hoy: tienes el día libre para avanzar.</p>';
-  $("#agenda-cuenta").textContent = ev.length ? `${ev.length} evento${ev.length === 1 ? "" : "s"}` : "";
+  const cumplidos = ev.filter((e) => e.hecho).length;
+  $("#agenda-cuenta").textContent = ev.length ? `${cumplidos} de ${ev.length} cumplido${ev.length === 1 ? "" : "s"}` : "";
+  $$("#agenda .evento-item").forEach((el) => {
+    const e = ev.find((x) => x.id === el.dataset.id);
+    el.querySelector(".check").onclick = () => marcarEvento(e);
+  });
+}
+
+async function marcarEvento(e) {
+  e.hecho = !e.hecho;
+  pintarAgenda(); pintarProgreso();
+  try {
+    await api("/api/agenda/marcar", { id: e.id, hecho: e.hecho });
+    if (e.hecho) toast("Cumplido: " + e.titulo);
+  } catch (err) {
+    e.hecho = !e.hecho;
+    pintarAgenda(); pintarProgreso();
+    toast(err.message);
+  }
 }
 
 // ---------------------------------------------------------------- tareas

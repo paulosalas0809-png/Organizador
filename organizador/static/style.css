@@ -255,8 +255,11 @@ details.rehacer summary { cursor: pointer; color: var(--muted); font-size: 13.5p
 
 .evento-item { display: flex; gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
 .evento-item:last-child { border: 0; }
-.evento-item .h { width: 96px; flex: none; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
-.evento-item .e { font-weight: 500; min-width: 0; }
+.evento-item .h { width: 88px; flex: none; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.evento-item { align-items: center; }
+.evento-item .e { font-weight: 500; min-width: 0; flex: 1; }
+.evento-item.hecho .check { background: var(--ok); border-color: var(--ok); color: #fff; }
+.evento-item.hecho .e, .evento-item.hecho .h { text-decoration: line-through; color: var(--muted); }
 .evento-item small { color: var(--muted); font-weight: 400; }
 
 /* ---------- chat ---------- */

@@ -108,10 +108,12 @@ def contexto_general(g: Google, cfg: Config, ahora: datetime, tareas: list[Tarea
         "PRÓXIMOS 7 DÍAS (usa estas fechas exactas):",
     ]
     semana = g.eventos_rango(hoy, 7)
+    archivo = cfg.carpeta_datos / f"agenda-{hoy.isoformat()}.json"
+    cumplidos = set(json.loads(archivo.read_text())) if archivo.exists() else set()
     for d, eventos in semana.items():
         fijos = [e for e in eventos if not e.todo_el_dia]
         texto = "; ".join(
-            f"{e.inicio:%H:%M}-{e.fin:%H:%M} {e.titulo}" + (f" [bloque del organizador id={e.id}]" if e.creado_por_organizador else f" [{e.calendario}]")
+            f"{e.inicio:%H:%M}-{e.fin:%H:%M} {e.titulo}" + (f" [bloque del organizador id={e.id}]" if e.creado_por_organizador else f" [{e.calendario}]") + (" (YA CUMPLIDO)" if e.id in cumplidos else "")
             for e in fijos
         ) or "sin eventos"
         todo_dia = [f"{e.titulo} [{e.calendario}]" for e in eventos if e.todo_el_dia]
