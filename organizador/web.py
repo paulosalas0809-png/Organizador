@@ -268,6 +268,7 @@ def api_hoy():
            "septiembre", "octubre", "noviembre", "diciembre"][dia.month - 1],
         "hora": momento.strftime("%H:%M"),
         "nombre": os.getenv("NOMBRE", "").strip(),
+        "hoy_iso": dia.isoformat(),
         "ia": ia_disponible(),
         "agente": gemini_disponible(),
         "google": False,
@@ -385,6 +386,37 @@ def api_agendar():
     plan["agendado"] = True
     archivo_plan(dia).write_text(json.dumps(plan, ensure_ascii=False))
     return jsonify(creados=creados)
+
+
+@app.get("/api/dia")
+@requiere_login
+def api_dia():
+    """Agenda de otro día (hasta dos semanas adelante): eventos, bloques de Orga y tareas que vencen."""
+    hoy = ahora().date()
+    try:
+        dia = date.fromisoformat(request.args.get("fecha", ""))
+    except ValueError:
+        return jsonify(error="Fecha no válida."), 400
+    if not hoy <= dia <= hoy + timedelta(days=13):
+        return jsonify(error="Solo puedo mostrar las próximas dos semanas."), 400
+    g = google()
+    return jsonify(
+        fecha=dia.isoformat(),
+        eventos=[
+            {
+                "id": e.id,
+                "hecho": False,
+                "titulo": e.titulo,
+                "inicio": e.inicio.strftime("%H:%M"),
+                "fin": e.fin.strftime("%H:%M"),
+                "todo_el_dia": e.todo_el_dia,
+                "organizador": e.creado_por_organizador,
+                "calendario": e.calendario,
+            }
+            for e in g.eventos_del_dia(dia)
+        ],
+        tareas=[t.titulo for t in g.tareas_pendientes() if t.vence == dia],
+    )
 
 
 @app.post("/api/agenda/marcar")

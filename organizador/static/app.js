@@ -53,6 +53,7 @@ async function cargar(silencioso) {
   const primeraVez = !datos;
   try {
     datos = await api("/api/hoy");
+    diasCache = {};
   } catch (e) {
     $("#cargando").textContent = e.message;
     return;
@@ -193,20 +194,85 @@ async function agendar() {
 
 // ---------------------------------------------------------------- agenda
 
-function pintarAgenda() {
-  const ev = datos.eventos;
-  $("#agenda").innerHTML = ev.length
-    ? ev.map((e) => `<div class="evento-item ${e.hecho ? "hecho" : ""}" data-id="${esc(e.id)}">
-        <button class="check" title="${e.hecho ? "Marcar como pendiente" : "Marcar como cumplido"}">${ico("check")}</button><div class="h">${e.todo_el_dia ? "Todo el día" : esc(e.inicio) + " – " + esc(e.fin)}</div>
-        <div class="e">${esc(e.titulo)}${e.calendario && !e.organizador ? ` <small>· ${esc(e.calendario)}</small>` : ""}</div></div>`).join("")
-    : '<p class="vacio">Sin eventos hoy: tienes el día libre para avanzar.</p>';
-  const cumplidos = ev.filter((e) => e.hecho).length;
-  $("#agenda-cuenta").textContent = ev.length ? `${cumplidos} de ${ev.length} cumplido${ev.length === 1 ? "" : "s"}` : "";
-  $$("#agenda .evento-item").forEach((el) => {
-    const e = ev.find((x) => x.id === el.dataset.id);
-    el.querySelector(".check").onclick = () => marcarEvento(e);
-  });
+// La agenda se puede ver por día: hoy (con casillas) y los 6 días siguientes
+let diaSel = null;            // null = hoy; si no, fecha "AAAA-MM-DD"
+let diasCache = {};
+
+function fechaLocal(iso) { return new Date(iso + "T12:00:00"); }
+function sumarDias(iso, n) {
+  const d = fechaLocal(iso); d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+function pintarDias() {
+  const hoy = datos.hoy_iso;
+  $("#dias").innerHTML = Array.from({ length: 7 }, (_, i) => {
+    const iso = sumarDias(hoy, i), f = fechaLocal(iso);
+    const activo = (diaSel || hoy) === iso;
+    return `<button class="dia ${activo ? "on" : ""}" data-f="${iso}"><small>${i === 0 ? "hoy" : i === 1 ? "mañ" : DSEM[f.getDay()]}</small><b>${f.getDate()}</b></button>`;
+  }).join("");
+}
+
+function filaEvento(e, conCasilla) {
+  return `<div class="evento-item ${e.hecho ? "hecho" : ""} ${e.organizador ? "de-orga" : ""}" data-id="${esc(e.id)}">
+    ${conCasilla ? `<button class="check" title="${e.hecho ? "Marcar como pendiente" : "Marcar como cumplido"}">${ico("check")}</button>` : '<i class="marca-dia"></i>'}
+    <div class="h">${e.todo_el_dia ? "Todo el día" : esc(e.inicio) + " – " + esc(e.fin)}</div>
+    <div class="e">${esc(sinEmoji(e.titulo) || e.titulo)}${e.organizador ? ' <span class="badge plan">Plan de Orga</span>' : e.calendario ? ` <small>· ${esc(e.calendario)}</small>` : ""}</div></div>`;
+}
+
+async function pintarAgenda() {
+  pintarDias();
+  const hoy = datos.hoy_iso;
+  const iso = diaSel || hoy;
+  const esHoy = iso === hoy;
+  const f = fechaLocal(iso);
+  $("#agenda-titulo").textContent = esHoy ? "Agenda de hoy" : iso === sumarDias(hoy, 1) ? "Agenda de mañana" : `Agenda del ${DSEM[f.getDay()]} ${f.getDate()}`;
+
+  let ev, tareas = [];
+  if (esHoy) {
+    ev = datos.eventos;
+  } else {
+    if (!diasCache[iso]) {
+      $("#agenda").innerHTML = '<p class="vacio"><span class="spinner"></span> Cargando…</p>';
+      $("#agenda-cuenta").textContent = "";
+      try { diasCache[iso] = await api("/api/dia?fecha=" + iso); }
+      catch (e) { if ((diaSel || hoy) === iso) $("#agenda").innerHTML = `<p class="vacio">${esc(e.message)}</p>`; return; }
+      if ((diaSel || hoy) !== iso) return;   // cambió de día mientras cargaba
+    }
+    ev = diasCache[iso].eventos; tareas = diasCache[iso].tareas;
+  }
+
+  const bloques = ev.filter((e) => e.organizador).length;
+  $("#agenda").innerHTML = (ev.length
+    ? ev.map((e) => filaEvento(e, esHoy)).join("")
+    : `<p class="vacio">${esHoy ? "Sin eventos hoy: tienes el día libre para avanzar." : "Todavía no hay nada programado para este día."}</p>`)
+    + (tareas.length ? `<div class="tareas-dia"><b>Tareas que vencen este día</b>${tareas.map((t) => `<div>${ico("tareas")}<span>${esc(t)}</span></div>`).join("")}</div>` : "")
+    + (!esHoy && datos.agente ? `<button class="link" id="planear-dia">${ico("chispa")}${bloques ? "Pedir a Orga que ajuste este día" : "Pedir a Orga que planifique este día"}</button>` : "");
+
+  if (esHoy) {
+    const cumplidos = ev.filter((e) => e.hecho).length;
+    $("#agenda-cuenta").textContent = ev.length ? `${cumplidos} de ${ev.length} cumplido${ev.length === 1 ? "" : "s"}` : "";
+    $$("#agenda .evento-item").forEach((el) => {
+      const e = ev.find((x) => x.id === el.dataset.id);
+      el.querySelector(".check").onclick = () => marcarEvento(e);
+    });
+  } else {
+    $("#agenda-cuenta").textContent = ev.length ? `${ev.length} evento${ev.length === 1 ? "" : "s"}${bloques ? ` · ${bloques} de Orga` : ""}` : "";
+    const btn = $("#planear-dia");
+    if (btn) btn.onclick = () => {
+      irA("agente");
+      const nombre = iso === sumarDias(hoy, 1) ? "mañana" : `el ${DSEM[f.getDay()]} ${f.getDate()}`;
+      enviarChat(`Planifica mi día de ${nombre} (${iso}): revisa mis eventos, mis tareas y mis metas, y agenda bloques realistas en mi calendario.`);
+    };
+  }
+}
+
+$("#dias").addEventListener("click", (e) => {
+  const b = e.target.closest(".dia");
+  if (!b) return;
+  diaSel = b.dataset.f === datos.hoy_iso ? null : b.dataset.f;
+  pintarAgenda();
+});
 
 async function marcarEvento(e) {
   e.hecho = !e.hecho;

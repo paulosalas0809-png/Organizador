@@ -416,3 +416,23 @@ details.rehacer summary { cursor: pointer; color: var(--muted); font-size: 13.5p
 .escuchar .ic { width: 14px; height: 14px; }
 .escuchar:hover, .escuchar.sonando { color: var(--brand); }
 .escuchar.sonando span::after { content: " · tocar para detener"; }
+
+/* ---------- selector de días ---------- */
+.dias { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
+.dia {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 7px 0 6px; line-height: 1.15;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--muted); min-width: 0;
+}
+.dia small { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; max-width: 100%; overflow: hidden; text-overflow: clip; }
+.dia b { font-size: 16px; font-weight: 700; color: var(--text); }
+.dia:hover { border-color: var(--brand); }
+.dia.on { background: var(--grad); border-color: transparent; color: rgba(255, 255, 255, .85); box-shadow: 0 6px 16px rgba(99, 79, 240, .28); }
+.dia.on b { color: #fff; }
+.marca-dia { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; margin: 0 7px; }
+.evento-item.de-orga .marca-dia { background: var(--brand); }
+.badge.plan { background: var(--brand-soft); color: var(--brand); white-space: nowrap; }
+.tareas-dia { margin-top: 12px; display: grid; gap: 6px; font-size: 14px; }
+.tareas-dia b { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.tareas-dia div { display: flex; gap: 8px; align-items: center; }
+.tareas-dia .ic { width: 15px; height: 15px; color: var(--muted); }
+#planear-dia { margin-top: 8px; }
