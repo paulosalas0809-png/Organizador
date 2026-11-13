@@ -3,7 +3,7 @@
   --text: #0b2233;
   --muted: #4a6272;
   --line: rgba(11, 34, 51, .11);
-  --glass: rgba(255, 255, 255, .64);
+  --glass: rgba(255, 255, 255, .7);
   --glass-2: rgba(255, 255, 255, .5);
   --glass-borde: rgba(255, 255, 255, .7);
   --campo: rgba(255, 255, 255, .6);
@@ -22,9 +22,9 @@
   --critico: #dc2626;
   --aviso: #f59e0b;
   --neutro: #7b8ea0;
-  --sombra: 0 10px 30px rgba(4, 30, 48, .14), inset 0 1px 0 rgba(255, 255, 255, .55);
+  --sombra: 0 6px 18px rgba(4, 30, 48, .12);
   --radius: 20px;
-  --blur: blur(22px) saturate(140%);
+  --blur: blur(16px);
   color-scheme: light;
 }
 
@@ -38,12 +38,15 @@ body {
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+/* El fondo va en una capa fija propia: así el navegador no lo repinta al desplazarse */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; transform: translateZ(0);
   background:
     radial-gradient(900px 600px at 12% -5%, rgba(125, 211, 252, .5), transparent 60%),
     radial-gradient(800px 700px at 100% 20%, rgba(45, 212, 191, .28), transparent 60%),
     radial-gradient(900px 700px at 55% 110%, rgba(56, 189, 248, .35), transparent 60%),
     linear-gradient(140deg, #082a40 0%, #0c4a6a 40%, #15749a 75%, #1b6d8c 100%);
-  background-attachment: fixed;
 }
 button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -110,8 +113,8 @@ h1, h2, p { margin: 0; }
 .perfil-txt small { font-size: 11px; opacity: .7; }
 
 #contenido, #cargando, #conectar {
-  background: rgba(232, 245, 252, .5); border: 1px solid rgba(255, 255, 255, .5); border-radius: 26px;
-  backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); box-shadow: 0 20px 60px rgba(2, 20, 34, .25);
+  background: linear-gradient(160deg, rgba(214, 236, 247, .62), rgba(190, 224, 240, .52)); border: 1px solid rgba(255, 255, 255, .5);
+  border-radius: 26px; box-shadow: 0 20px 60px rgba(2, 20, 34, .25);
 }
 #contenido { padding: 16px 14px; }
 
@@ -123,7 +126,7 @@ h1, h2, p { margin: 0; }
   #contenido { padding: 26px 28px 30px; min-height: calc(100vh - 100px); }
 }
 
-.vista { display: none; flex-direction: column; gap: 16px; min-width: 0; animation: entrar .25s ease; }
+.vista { display: none; flex-direction: column; gap: 16px; min-width: 0; animation: entrar .18s ease; }
 .vista.activa { display: flex; }
 .vista.estrecha { max-width: 780px; margin: 0 auto; width: 100%; }
 @keyframes entrar { from { opacity: 0; transform: translateY(6px); } }
@@ -139,7 +142,7 @@ h1 { font-size: 26px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1
 /* ---------- piezas base ---------- */
 .card, .kpi, .meta-item {
   background: var(--glass); border: 1px solid var(--glass-borde); border-radius: var(--radius);
-  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: var(--sombra); min-width: 0;
+  box-shadow: var(--sombra); min-width: 0;
 }
 .card { padding: 18px; }
 .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
@@ -470,3 +473,8 @@ details.rehacer summary { cursor: pointer; color: var(--muted); font-size: 13.5p
 .login p { color: var(--muted); margin-bottom: 6px; }
 .error { color: var(--danger); background: var(--danger-soft); border-radius: 12px; padding: 8px 12px; font-size: 14px; }
 .modos .chip { padding: 6px 11px; }
+
+/* ---------- actualización en segundo plano ---------- */
+.js-recargar .ic { transition: transform .3s; }
+body.actualizando .js-recargar .ic { animation: girar .9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

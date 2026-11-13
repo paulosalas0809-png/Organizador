@@ -49,15 +49,7 @@ function ahoraMin() { const d = new Date(); return d.getHours() * 60 + d.getMinu
 
 // ---------------------------------------------------------------- carga
 
-async function cargar(silencioso) {
-  const primeraVez = !datos;
-  try {
-    datos = await api("/api/hoy");
-    diasCache = {};
-  } catch (e) {
-    $("#cargando").textContent = e.message;
-    return;
-  }
+function mostrarDatos(primeraVez) {
   $("#cargando").hidden = true;
   const h = new Date().getHours();
   $("#saludo").textContent = (h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches") + (datos.nombre ? ", " + datos.nombre : "");
@@ -69,6 +61,27 @@ async function cargar(silencioso) {
   $("#contenido").hidden = false;
   pintarTodo();
   if (primeraVez) { pintarChat(); cargarCoach(false); }
+}
+
+async function cargar(silencioso) {
+  let primeraVez = !datos;
+  if (primeraVez) {
+    // Primero lo guardado de la última visita de hoy (aparece al instante); luego lo actual
+    const guardado = leer("datos-" + hoyClave(), null);
+    if (guardado && guardado.google) { datos = guardado; mostrarDatos(true); primeraVez = false; }
+  }
+  document.body.classList.add("actualizando");
+  try {
+    datos = await api("/api/hoy");
+    diasCache = {};
+    guardar("datos-" + hoyClave(), datos);
+  } catch (e) {
+    if (primeraVez) $("#cargando").textContent = e.message; else toast(e.message);
+    return;
+  } finally {
+    document.body.classList.remove("actualizando");
+  }
+  mostrarDatos(primeraVez);
 }
 
 function mostrarConectar() {

@@ -276,9 +276,17 @@ def api_hoy():
     creds = credenciales_google()
     if creds is None:
         return jsonify(base)
-    g = Google(cfg, creds)
-    eventos, tareas = datos_del_dia(g, dia)
-    completadas = g.tareas_completadas_hoy(dia)
+    # Tres consultas a Google a la vez (cada una con su propia conexión) y los eventos
+    # de los próximos 31 días en una sola lectura, de la que salen hoy, la semana y los próximos.
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=3) as hilos:
+        f_eventos = hilos.submit(lambda: Google(cfg, creds).eventos_entre(dia, dia + timedelta(days=31)))
+        f_tareas = hilos.submit(lambda: Google(cfg, creds).tareas_pendientes())
+        f_hechas = hilos.submit(lambda: Google(cfg, creds).tareas_completadas_hoy(dia))
+        todos, tareas, completadas = f_eventos.result(), ordenar(f_tareas.result()), f_hechas.result()
+    fin_hoy = datetime.combine(dia + timedelta(days=1), datetime.min.time(), cfg.zona)
+    eventos = [e for e in todos if e.inicio < fin_hoy]
     cumplidos = agenda_cumplida(dia)
     plan = None
     if archivo_plan(dia).exists():
@@ -306,8 +314,8 @@ def api_hoy():
                 "dias": (e.inicio.date() - dia).days,
                 "calendario": e.calendario,
             }
-            for e in g.eventos_entre(dia + timedelta(days=1), dia + timedelta(days=31))
-            if not e.creado_por_organizador
+            for e in todos
+            if e.inicio >= fin_hoy and not e.creado_por_organizador
         ][:40],
         tareas=[
             {
@@ -329,19 +337,22 @@ def api_hoy():
         completadas=completadas,
         plan=plan,
         metas=metas.listar(),
-        semana=_semana(g, dia, tareas),
+        semana=_semana(todos, dia, tareas),
     )
     return jsonify(base)
 
 
-def _semana(g: Google, dia: date, tareas: list[Tarea]) -> list[dict]:
+def _semana(todos: list, dia: date, tareas: list[Tarea]) -> list[dict]:
     """Carga de los próximos 7 días: horas ocupadas, eventos y tareas que vencen."""
     semana = []
-    for d, eventos in g.eventos_rango(dia, 7).items():
+    for i in range(7):
+        d = dia + timedelta(days=i)
         ini_d = datetime.combine(d, datetime.min.time(), cfg.zona)
         fin_d = ini_d + timedelta(days=1)
-        con_hora = [e for e in eventos if not e.todo_el_dia]
-        minutos = sum((min(e.fin, fin_d) - max(e.inicio, ini_d)).total_seconds() / 60 for e in con_hora)
+        eventos = [e for e in todos if e.inicio < fin_d and e.fin > ini_d]
+        minutos = sum(
+            (min(e.fin, fin_d) - max(e.inicio, ini_d)).total_seconds() / 60 for e in eventos if not e.todo_el_dia
+        )
         semana.append({
             "fecha": d.isoformat(),
             "horas": round(max(minutos, 0) / 60, 1),
