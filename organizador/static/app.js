@@ -62,6 +62,8 @@ async function cargar(silencioso) {
   const h = new Date().getHours();
   $("#saludo").textContent = (h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches") + (datos.nombre ? ", " + datos.nombre : "");
   $("#fecha").textContent = datos.fecha;
+  $("#perfil-nombre").textContent = datos.nombre || "Mi cuenta";
+  $("#perfil-inicial").textContent = (datos.nombre || "O").charAt(0).toUpperCase();
   if (!datos.google) { mostrarConectar(); return; }
   $("#conectar").hidden = true;
   $("#contenido").hidden = false;
@@ -99,7 +101,67 @@ function pintarProximos() {
   if (mas) mas.onclick = () => { proxTodos = !proxTodos; pintarProximos(); };
 }
 
+// ---------------------------------------------------------------- gráficos
+
+function pintarSemana() {
+  const sem = datos.semana || [];
+  const caja = $("#barras");
+  if (!sem.length) { caja.innerHTML = '<p class="vacio">Sin datos de la semana.</p>'; return; }
+  const max = Math.max(...sem.map((d) => d.horas), 1);
+  const tope = Math.max(2, Math.ceil(max / 2) * 2);            // eje en pasos de 2 h
+  const iMax = sem.findIndex((d) => d.horas === max);
+  const total = sem.reduce((a, d) => a + d.horas, 0);
+  $("#semana-sub").textContent = `${Math.round(total * 10) / 10} h ocupadas en los próximos 7 días`;
+  const lineas = [tope, tope / 2, 0].map((v) => `<div class="eje"><span>${v} h</span><i></i></div>`).join("");
+  const columnas = sem.map((d, i) => {
+    const f = fechaLocal(d.fecha);
+    const alto = d.horas ? Math.max(3, (d.horas / tope) * 100) : 0;
+    const dia = i === 0 ? "Hoy" : DSEM[f.getDay()];
+    const detalle = `${d.horas} h · ${d.eventos} evento${d.eventos === 1 ? "" : "s"}${d.tareas ? ` · ${d.tareas} tarea${d.tareas === 1 ? "" : "s"} vence${d.tareas === 1 ? "" : "n"}` : ""}`;
+    return `<button class="col ${i === 0 ? "hoy" : ""}" data-f="${d.fecha}" aria-label="${dia} ${f.getDate()}: ${detalle}">
+      <span class="tip"><b>${dia} ${f.getDate()}</b>${detalle}</span>
+      <span class="pista">${i === 0 || i === iMax ? `<em style="bottom:${alto}%">${d.horas} h</em>` : ""}<i style="height:${alto}%"></i></span>
+      <small>${dia}</small></button>`;
+  }).join("");
+  caja.innerHTML = `<div class="ejes">${lineas}</div><div class="cols">${columnas}</div>`;
+  caja.querySelectorAll(".col").forEach((c) => c.onclick = () => {
+    diaSel = c.dataset.f === datos.hoy_iso ? null : c.dataset.f;
+    pintarAgenda();
+    $("#dias").scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+}
+
+function pintarDona() {
+  const cuenta = (e) => datos.tareas.filter((t) => t.estado === e).length;
+  const partes = [
+    { n: "Vencidas", v: cuenta("vencida"), c: "var(--critico)" },
+    { n: "Para hoy", v: cuenta("hoy"), c: "var(--aviso)" },
+    { n: "Con fecha próxima", v: cuenta("futura"), c: "var(--brand)" },
+    { n: "Sin fecha", v: cuenta("sin_fecha"), c: "var(--neutro)" },
+  ];
+  const total = partes.reduce((a, p) => a + p.v, 0);
+  const R = 42, L = 2 * Math.PI * R, hueco = total && partes.filter((p) => p.v).length > 1 ? 3 : 0;
+  let pos = 0;
+  const arcos = partes.filter((p) => p.v).map((p) => {
+    const largo = (p.v / total) * L;
+    const arco = `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${p.c}" stroke-width="15"
+      stroke-dasharray="${Math.max(largo - hueco, 1)} ${L}" stroke-dashoffset="${-pos}"><title>${p.n}: ${p.v}</title></circle>`;
+    pos += largo;
+    return arco;
+  }).join("");
+  $("#dona").innerHTML = `
+    <div class="dona">
+      <svg viewBox="0 0 120 120" role="img" aria-label="Tareas por estado">
+        <circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--line)" stroke-width="15"/>${arcos}
+      </svg>
+      <div class="dona-centro"><b>${total}</b><span>pendiente${total === 1 ? "" : "s"}</span></div>
+    </div>
+    <div class="leyenda">${partes.map((p) => `<div><i style="background:${p.c}"></i><span>${p.n}</span><b>${p.v}</b></div>`).join("")}</div>`;
+}
+
 function pintarTodo() {
+  pintarSemana();
+  pintarDona();
   pintarProximos();
   pintarMetas();
   pintarProgreso();
@@ -121,6 +183,11 @@ function pintarProgreso() {
   $("#anillo-arco").style.strokeDashoffset = 150.8 * (1 - pct / 100);
   $("#st-hechas").textContent = hechas;
   $("#st-urgentes").textContent = urgentes;
+  $("#st-eventos").textContent = datos.eventos.length;
+  $("#st-pendientes").textContent = datos.tareas.length;
+  $("#st-metas").textContent = (datos.metas || []).length;
+  $("#st-pomos").textContent = leer("pomodoros-" + hoyClave(), 0);
+  $("#nav-tareas").textContent = urgentes || "";
 }
 
 // ---------------------------------------------------------------- plan
@@ -455,6 +522,19 @@ async function cargarCoach(nuevo) {
 }
 $("#coach-otro").onclick = () => cargarCoach(true);
 $("#coach-hablar").onclick = () => irA("agente");
+$("#ir-enfoque").onclick = () => irA("enfoque");
+$("#planificar-semana").onclick = () => {
+  irA("agente");
+  enviarChat("Planifica mi semana: reparte mis tareas y mis metas en bloques realistas en mi calendario para los próximos 7 días.");
+};
+$("#form-pedir").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const v = $("#pedir-input").value.trim();
+  if (!v) return;
+  $("#pedir-input").value = "";
+  irA("agente");
+  enviarChat(v);
+});
 
 // ---------------------------------------------------------------- metas
 

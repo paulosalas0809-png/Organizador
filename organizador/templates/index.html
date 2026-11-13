@@ -7,12 +7,12 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="{{ url_for('static', filename='icono.svg') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icono.svg') }}">
-  <meta name="theme-color" content="#4f46e5">
+  <meta name="theme-color" content="#0b3550">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=9">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=10">
 </head>
 <body>
 
@@ -20,7 +20,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <linearGradient id="grad-marca" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#6366f1"/><stop offset=".55" stop-color="#8b5cf6"/><stop offset="1" stop-color="#d946ef"/>
+      <stop offset="0" stop-color="#7dd3fc"/><stop offset=".5" stop-color="#38bdf8"/><stop offset="1" stop-color="#0284c7"/>
     </linearGradient>
   </defs>
   <symbol id="i-inicio" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></symbol>
@@ -50,6 +50,7 @@
   <symbol id="i-flecha" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
   <symbol id="i-campana" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
   <symbol id="i-caja" viewBox="0 0 24 24"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></symbol>
+  <symbol id="i-buscar" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
   <symbol id="i-logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="url(#grad-marca)" stroke="none"/><path d="M9.5 16.5l4.2 4.2 8.8-9.4" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
 
@@ -60,13 +61,17 @@
       <div><b>Orga</b><span>Asistente personal</span></div>
     </div>
     <nav class="nav" id="nav">
-      <button data-vista="hoy"><svg class="ic"><use href="#i-inicio"/></svg>Hoy</button>
+      <div class="grupo">Principal</div>
+      <button data-vista="hoy"><svg class="ic"><use href="#i-inicio"/></svg>Resumen</button>
       <button data-vista="agente"><svg class="ic"><use href="#i-chispa"/></svg>Orga, tu agente</button>
+      <div class="grupo">Organización</div>
       <button data-vista="metas"><svg class="ic"><use href="#i-meta"/></svg>Metas</button>
-      <button data-vista="tareas"><svg class="ic"><use href="#i-tareas"/></svg>Tareas</button>
+      <button data-vista="tareas"><svg class="ic"><use href="#i-tareas"/></svg>Tareas<i class="conteo" id="nav-tareas"></i></button>
+      <div class="grupo">Concentración</div>
       <button data-vista="enfoque"><svg class="ic"><use href="#i-reloj"/></svg>Enfoque</button>
     </nav>
     <div class="side-pie">
+      <div class="grupo">Sistema</div>
       <button class="js-recargar"><svg class="ic"><use href="#i-recargar"/></svg>Actualizar</button>
       <a href="/salir"><svg class="ic"><use href="#i-salir"/></svg>Cerrar sesión</a>
     </div>
@@ -74,13 +79,19 @@
 
   <div class="main">
     <header class="topbar">
-      <div class="marca">
+      <div class="marca solo-cel">
         <svg class="logo"><use href="#i-logo"/></svg>
         <b>Orga</b>
       </div>
+      <form class="pedir" id="form-pedir">
+        <svg class="ic"><use href="#i-buscar"/></svg>
+        <input type="text" id="pedir-input" placeholder="Pídele algo a Orga: «agenda estudiar mañana a las 4»…" maxlength="500" autocomplete="off">
+        <kbd>Enter</kbd>
+      </form>
       <div class="top-acciones">
         <button class="icon-btn js-recargar" title="Actualizar"><svg class="ic"><use href="#i-recargar"/></svg></button>
-        <a class="icon-btn" href="/salir" title="Cerrar sesión"><svg class="ic"><use href="#i-salir"/></svg></a>
+        <a class="icon-btn solo-cel" href="/salir" title="Cerrar sesión"><svg class="ic"><use href="#i-salir"/></svg></a>
+        <div class="perfil"><span class="inicial" id="perfil-inicial">O</span><span class="perfil-txt"><b id="perfil-nombre">Mi cuenta</b><small>Personal</small></span></div>
       </div>
     </header>
 
@@ -101,31 +112,64 @@
             <p class="eyebrow" id="fecha">&nbsp;</p>
             <h1 id="saludo">Hola</h1>
           </div>
-          <button class="btn" id="coach-hablar"><svg class="ic"><use href="#i-chispa"/></svg>Hablar con Orga</button>
+          <div class="head-acciones">
+            <button class="btn sec" id="ir-enfoque"><svg class="ic"><use href="#i-reloj"/></svg>Enfocarme</button>
+            <button class="btn" id="coach-hablar"><svg class="ic"><use href="#i-chispa"/></svg>Hablar con Orga</button>
+          </div>
+        </div>
+
+        <div class="graficos">
+          <div class="card">
+            <div class="card-head">
+              <div><h2>Carga de la semana</h2><span class="sub" id="semana-sub">Horas ocupadas por día</span></div>
+              <button class="btn chico" id="planificar-semana"><svg class="ic"><use href="#i-mas"/></svg>Planificar semana</button>
+            </div>
+            <div class="barras" id="barras"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h2>Tareas por estado</h2><span class="sub">Todas tus listas</span></div></div>
+            <div class="dona-caja" id="dona"></div>
+          </div>
         </div>
 
         <div class="kpis">
           <div class="kpi">
-            <div class="anillo">
-              <svg width="56" height="56" viewBox="0 0 56 56">
-                <circle cx="28" cy="28" r="24" fill="none" stroke="var(--line)" stroke-width="6"/>
-                <circle id="anillo-arco" cx="28" cy="28" r="24" fill="none" stroke="url(#grad-marca)" stroke-width="6"
+            <div class="kpi-ic anillo">
+              <svg width="34" height="34" viewBox="0 0 56 56">
+                <circle cx="28" cy="28" r="24" fill="none" stroke="var(--line)" stroke-width="7"/>
+                <circle id="anillo-arco" cx="28" cy="28" r="24" fill="none" stroke="var(--brand)" stroke-width="7"
                         stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="150.8"/>
               </svg>
             </div>
-            <div><b id="pct">0%</b><span>Avance</span></div>
+            <b id="pct">0%</b><span>Avance del día</span>
           </div>
           <div class="kpi">
-            <div class="kpi-ic ok"><svg class="ic"><use href="#i-check"/></svg></div>
-            <div><b id="st-hechas">0</b><span>Hechas hoy</span></div>
+            <div class="kpi-ic"><svg class="ic"><use href="#i-check"/></svg></div>
+            <b id="st-hechas">0</b><span>Hechas hoy</span>
           </div>
           <div class="kpi">
-            <div class="kpi-ic warn"><svg class="ic"><use href="#i-fuego"/></svg></div>
-            <div><b id="st-urgentes">0</b><span>Urgentes</span></div>
+            <div class="kpi-ic"><svg class="ic"><use href="#i-fuego"/></svg></div>
+            <b id="st-urgentes">0</b><span>Urgentes</span>
           </div>
           <div class="kpi">
-            <div class="kpi-ic info"><svg class="ic"><use href="#i-campana"/></svg></div>
-            <div class="kpi-prox"><b id="kpi-prox-cuando">—</b><span id="kpi-prox-titulo">Sin pendientes próximos</span></div>
+            <div class="kpi-ic"><svg class="ic"><use href="#i-calendario"/></svg></div>
+            <b id="st-eventos">0</b><span>Eventos hoy</span>
+          </div>
+          <div class="kpi">
+            <div class="kpi-ic"><svg class="ic"><use href="#i-tareas"/></svg></div>
+            <b id="st-pendientes">0</b><span>Tareas pendientes</span>
+          </div>
+          <div class="kpi">
+            <div class="kpi-ic"><svg class="ic"><use href="#i-meta"/></svg></div>
+            <b id="st-metas">0</b><span>Metas activas</span>
+          </div>
+          <div class="kpi">
+            <div class="kpi-ic"><svg class="ic"><use href="#i-reloj"/></svg></div>
+            <b id="st-pomos">0</b><span>Pomodoros hoy</span>
+          </div>
+          <div class="kpi">
+            <div class="kpi-ic"><svg class="ic"><use href="#i-campana"/></svg></div>
+            <b id="kpi-prox-cuando">—</b><span id="kpi-prox-titulo">Sin pendientes próximos</span>
           </div>
         </div>
 
@@ -276,6 +320,6 @@
 </nav>
 
 <div class="toast" id="toast"></div>
-<script src="{{ url_for('static', filename='app.js') }}?v=9"></script>
+<script src="{{ url_for('static', filename='app.js') }}?v=10"></script>
 </body>
 </html>

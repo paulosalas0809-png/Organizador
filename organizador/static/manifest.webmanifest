@@ -4,8 +4,8 @@
   "description": "Tu agente personal de productividad",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0c13",
-  "theme_color": "#4f46e5",
+  "background_color": "#0b3550",
+  "theme_color": "#0b3550",
   "lang": "es",
   "icons": [
     { "src": "/static/icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }

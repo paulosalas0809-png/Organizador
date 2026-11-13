@@ -329,8 +329,26 @@ def api_hoy():
         completadas=completadas,
         plan=plan,
         metas=metas.listar(),
+        semana=_semana(g, dia, tareas),
     )
     return jsonify(base)
+
+
+def _semana(g: Google, dia: date, tareas: list[Tarea]) -> list[dict]:
+    """Carga de los próximos 7 días: horas ocupadas, eventos y tareas que vencen."""
+    semana = []
+    for d, eventos in g.eventos_rango(dia, 7).items():
+        ini_d = datetime.combine(d, datetime.min.time(), cfg.zona)
+        fin_d = ini_d + timedelta(days=1)
+        con_hora = [e for e in eventos if not e.todo_el_dia]
+        minutos = sum((min(e.fin, fin_d) - max(e.inicio, ini_d)).total_seconds() / 60 for e in con_hora)
+        semana.append({
+            "fecha": d.isoformat(),
+            "horas": round(max(minutos, 0) / 60, 1),
+            "eventos": len(eventos),
+            "tareas": sum(1 for t in tareas if t.vence == d),
+        })
+    return semana
 
 
 @app.post("/api/plan")
