@@ -437,7 +437,44 @@ function botonPomo(estado) {
   $("#pomo-iniciar").innerHTML = estado === "pausar" ? ico("pausa") + "Pausar" : ico("play") + (estado === "seguir" ? "Seguir" : "Empezar");
 }
 
-const pomo = { duracion: 25 * 60, restante: 25 * 60, timer: null, fin: 0, modo: 25 };
+// Minutos de cada modo: los ajusta el usuario y se guardan en este dispositivo
+const DURACION_DEFECTO = { enfoque: 25, pausa: 5, larga: 15 };
+let duraciones = { ...DURACION_DEFECTO, ...leer("pomo-minutos", {}) };
+const pomo = { tipo: "enfoque", duracion: duraciones.enfoque * 60, restante: duraciones.enfoque * 60, timer: null, fin: 0 };
+
+function pintarDuraciones() {
+  for (const k of ["enfoque", "pausa", "larga"]) {
+    $("#min-" + k).textContent = duraciones[k];
+    $("#cfg-" + k).value = duraciones[k];
+  }
+}
+
+function aplicarModo(tipo) {
+  $$(".modos .chip").forEach((c) => c.classList.toggle("on", c.dataset.tipo === tipo));
+  clearInterval(pomo.timer); pomo.timer = null;
+  pomo.tipo = tipo;
+  pomo.duracion = pomo.restante = duraciones[tipo] * 60;
+  botonPomo("empezar");
+  pintarReloj();
+}
+
+function guardarDuraciones() {
+  const nuevas = {};
+  for (const [k, max] of [["enfoque", 180], ["pausa", 60], ["larga", 90]]) {
+    const v = Math.round(Number($("#cfg-" + k).value));
+    if (!v || v < 1 || v > max) { toast(`Los minutos de ${k === "larga" ? "pausa larga" : k} deben estar entre 1 y ${max}`); return; }
+    nuevas[k] = v;
+  }
+  duraciones = nuevas;
+  guardar("pomo-minutos", duraciones);
+  pintarDuraciones();
+  aplicarModo(pomo.tipo);
+  $("#ajustes-pomo").open = false;
+  toast(`Listo: ${duraciones.enfoque} min de enfoque, ${duraciones.pausa} de pausa y ${duraciones.larga} de pausa larga`);
+}
+$("#cfg-guardar").onclick = guardarDuraciones;
+$("#cfg-defecto").onclick = () => { duraciones = { ...DURACION_DEFECTO }; guardar("pomo-minutos", duraciones); pintarDuraciones(); aplicarModo(pomo.tipo); toast("Minutos restablecidos"); };
+$$("#ajustes-pomo input").forEach((i) => i.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); guardarDuraciones(); } }));
 
 function pintarReloj() {
   const m = Math.floor(pomo.restante / 60), s = pomo.restante % 60;
@@ -469,7 +506,7 @@ function tick() {
     clearInterval(pomo.timer); pomo.timer = null;
     botonPomo("empezar");
     sonar();
-    if (pomo.modo === 25) {
+    if (pomo.tipo === "enfoque") {
       guardar("pomodoros-" + hoyClave(), leer("pomodoros-" + hoyClave(), 0) + 1);
       toast("🍅 ¡Pomodoro terminado! Toma una pausa.");
       if ("Notification" in window && Notification.permission === "granted") new Notification("Pomodoro terminado. Toma una pausa.");
@@ -499,14 +536,8 @@ $("#pomo-reiniciar").onclick = () => {
   botonPomo("empezar");
   pintarReloj();
 };
-$$(".modos .chip").forEach((b) => b.onclick = () => {
-  $$(".modos .chip").forEach((c) => c.classList.toggle("on", c === b));
-  clearInterval(pomo.timer); pomo.timer = null;
-  pomo.modo = Number(b.dataset.min);
-  pomo.duracion = pomo.restante = pomo.modo * 60;
-  botonPomo("empezar");
-  pintarReloj();
-});
+$$(".modos .chip").forEach((b) => b.onclick = () => aplicarModo(b.dataset.tipo));
+pintarDuraciones();
 
 function enfocar(t) {
   $("#pomo-tarea").textContent = "Enfocado en: " + t.titulo;

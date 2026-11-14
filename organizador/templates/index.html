@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=11">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=12">
 </head>
 <body>
 
@@ -284,10 +284,22 @@
         </div>
         <div class="card pomodoro">
           <div class="modos">
-            <button class="chip on" data-min="25">Enfoque · 25</button>
-            <button class="chip" data-min="5">Pausa · 5</button>
-            <button class="chip" data-min="15">Pausa · 15</button>
+            <button class="chip on" data-tipo="enfoque">Enfoque · <span id="min-enfoque">25</span> min</button>
+            <button class="chip" data-tipo="pausa">Pausa · <span id="min-pausa">5</span> min</button>
+            <button class="chip" data-tipo="larga">Pausa larga · <span id="min-larga">15</span> min</button>
           </div>
+          <details class="ajustes" id="ajustes-pomo">
+            <summary>Ajustar minutos</summary>
+            <div class="ajustes-grid">
+              <label>Enfoque<input type="number" id="cfg-enfoque" min="1" max="180" inputmode="numeric"></label>
+              <label>Pausa<input type="number" id="cfg-pausa" min="1" max="60" inputmode="numeric"></label>
+              <label>Pausa larga<input type="number" id="cfg-larga" min="1" max="90" inputmode="numeric"></label>
+            </div>
+            <div class="fila-btn" style="margin-top:10px">
+              <button type="button" class="btn chico" id="cfg-guardar">Guardar</button>
+              <button type="button" class="btn sec chico" id="cfg-defecto">Volver a 25 / 5 / 15</button>
+            </div>
+          </details>
           <div class="reloj-caja">
             <svg viewBox="0 0 240 240">
               <circle cx="120" cy="120" r="108" fill="none" stroke="var(--line)" stroke-width="10"/>
@@ -320,6 +332,6 @@
 </nav>
 
 <div class="toast" id="toast"></div>
-<script src="{{ url_for('static', filename='app.js') }}?v=11"></script>
+<script src="{{ url_for('static', filename='app.js') }}?v=12"></script>
 </body>
 </html>
