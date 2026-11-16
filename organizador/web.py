@@ -249,6 +249,12 @@ def inicio():
     return render_template("index.html")
 
 
+@app.route("/careeros")
+def careeros():
+    """CareerOS: app independiente que guarda sus datos en el navegador (no usa el servidor)."""
+    return app.send_static_file("careeros.html")
+
+
 @app.route("/manifest.webmanifest")
 def manifest():
     return app.send_static_file("manifest.webmanifest")
