@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FinVital OS</title>
+<meta name="theme-color" content="#0a0b10">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root[data-theme=dark] {
+  --bg: #0a0b10; --surface: #12141c; --surface-2: #191c27; --text: #eceef6; --muted: #8a90a6; --line: #232737;
+  --indigo: #818cf8; --emerald: #34d399; --amber: #f59e0b; --rose: #fb7185; --grid: #232737;
+  --indigo-soft: rgba(129,140,248,.14); --emerald-soft: rgba(52,211,153,.13); --amber-soft: rgba(245,158,11,.14); --rose-soft: rgba(251,113,133,.14);
+  --btn: #5b5ef0; --shadow: 0 0 0 1px rgba(255,255,255,.02) inset; color-scheme: dark;
+}
+:root[data-theme=light] {
+  --bg: #f6f7fb; --surface: #ffffff; --surface-2: #f1f2f8; --text: #0f1222; --muted: #646b82; --line: #e3e6ef;
+  --indigo: #4f46e5; --emerald: #059669; --amber: #b45309; --rose: #e11d48; --grid: #e9ebf3;
+  --indigo-soft: #ecebfd; --emerald-soft: #dcf5ea; --amber-soft: #fdefd3; --rose-soft: #fde5ea;
+  --btn: #4f46e5; --shadow: 0 1px 2px rgba(15,18,34,.04), 0 8px 24px rgba(15,18,34,.05); color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: 14px/1.5 "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+h1, h2, h3, p { margin: 0; }
+.num { font-variant-numeric: tabular-nums; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 16px 60px; }
+.top { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+.top-in { max-width: 1240px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 14px; }
+.logo { display: flex; align-items: center; gap: 9px; font-weight: 700; letter-spacing: -.02em; font-size: 15.5px; white-space: nowrap; }
+.logo i { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, #6366f1, #34d399); display: block; }
+.nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; flex: 1; }
+.nav::-webkit-scrollbar { display: none; }
+.nav a { color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 8px; font-weight: 500; font-size: 13.5px; white-space: nowrap; }
+.nav a:hover { color: var(--text); background: var(--surface-2); }
+.btn { border: 0; border-radius: 9px; padding: 8px 13px; font-weight: 600; font-size: 13.5px; background: var(--btn); color: #fff; display: inline-flex; gap: 7px; align-items: center; justify-content: center; white-space: nowrap; }
+.btn:hover { filter: brightness(1.1); }
+.btn.sec { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
+.btn.ghost { background: none; color: var(--muted); padding: 6px 8px; }
+.btn.ghost:hover { color: var(--text); background: var(--surface-2); }
+.btn.sm { padding: 5px 9px; font-size: 12.5px; }
+.btn:disabled { opacity: .5; cursor: default; }
+section { padding-top: 26px; scroll-margin-top: 56px; }
+.sec-h { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-size: 24px; font-weight: 700; letter-spacing: -.03em; }
+h2 { font-size: 18px; font-weight: 700; letter-spacing: -.025em; }
+h3 { font-size: 13.5px; font-weight: 600; }
+.muted { color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); min-width: 0; }
+.grid { display: grid; gap: 12px; }
+.g3 { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.g2 { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 940px) { .g2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); } .g2.eq { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.kpi .lbl { font-size: 12.5px; color: var(--muted); font-weight: 500; }
+.kpi b { display: block; font-size: 28px; font-weight: 700; letter-spacing: -.035em; line-height: 1.2; margin-top: 4px; }
+.kpi .sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; border-radius: 999px; padding: 2px 9px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.chip.in { background: var(--indigo-soft); color: var(--indigo); } .chip.em { background: var(--emerald-soft); color: var(--emerald); }
+.chip.am { background: var(--amber-soft); color: var(--amber); } .chip.ro { background: var(--rose-soft); color: var(--rose); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.grow { flex: 1; min-width: 0; }
+.stack { display: grid; gap: 12px; align-content: start; min-width: 0; }
+input[type=text], input[type=number], input[type=url], input[type=date], select, textarea { width: 100%; border: 1px solid var(--line); background: var(--surface-2); border-radius: 9px; padding: 7px 10px; outline: none; min-width: 0; }
+input:focus, select:focus, textarea:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px var(--indigo-soft); }
+textarea { resize: vertical; font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+label.f { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.saldo { display: grid; grid-template-columns: minmax(0, 1fr) 118px 30px; gap: 6px; align-items: center; }
+.saldo.c4 { grid-template-columns: minmax(0, 1fr) 104px 104px 30px; }
+.saldo input { padding: 6px 8px; }
+.saldo .h { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.bar { height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 999px; background: var(--indigo); transition: width .4s; }
+.bar.em i { background: var(--emerald); }
+.tar-h { display: flex; align-items: flex-start; gap: 10px; }
+.tar-h b { font-size: 15.5px; letter-spacing: -.01em; }
+.dato { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 5px 0; border-top: 1px solid var(--line); }
+.dato span:first-child { color: var(--muted); }
+.fgrid { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fgrid .full { grid-column: 1 / -1; }
+.dots { display: flex; gap: 6px; }
+.dots i { width: 22px; height: 22px; border-radius: 7px; background: var(--surface-2); border: 1px solid var(--line); }
+.dots i.on { background: var(--emerald); border-color: transparent; }
+.ring { position: relative; width: 132px; height: 132px; flex: none; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring div { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+.ring b { font-size: 30px; font-weight: 700; letter-spacing: -.04em; }
+.ring span { font-size: 11px; color: var(--muted); }
+.comp { display: grid; gap: 10px; flex: 1; min-width: 200px; }
+.comp .l { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+.chart { width: 100%; height: 220px; }
+.chart.sm { height: 150px; }
+.tip { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.tip b { display: block; margin-bottom: 2px; }
+.tip div { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.tip i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 6px; }
+.modal { position: fixed; inset: 0; z-index: 50; background: rgba(4,5,10,.6); display: grid; place-items: center; padding: 12px; }
+.modal .card { width: 100%; max-width: 720px; max-height: 92vh; overflow: auto; display: grid; gap: 14px; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs button { border: 0; background: none; padding: 8px 10px; color: var(--muted); font-weight: 600; font-size: 13px; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tabs button.on { color: var(--text); border-color: var(--indigo); }
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 9px 15px; border-radius: 10px; font-size: 13px; font-weight: 500; z-index: 80; max-width: calc(100% - 24px); }
+.banner { margin-top: 16px; background: var(--amber-soft); color: var(--amber); border-radius: 12px; padding: 9px 13px; font-size: 13px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.estado { font-size: 12px; display: flex; gap: 6px; align-items: center; color: var(--muted); }
+.estado i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.estado.ok i { background: var(--emerald); } .estado.err i { background: var(--rose); }
+.recharts-cartesian-axis-tick text { fill: var(--muted); font-size: 11px; }
+.recharts-legend-item-text { color: var(--muted) !important; font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="/static/vendor/react.production.min.js"></script>
+<script src="/static/vendor/react-dom.production.min.js"></script>
+<script src="/static/vendor/prop-types.min.js"></script>
+<script src="/static/vendor/recharts.min.js"></script>
+<script src="/static/vendor/htm.umd.js"></script>
+<script>
+"use strict";
+const { useState, useMemo, useEffect, useRef } = React;
+const html = htm.bind(React.createElement);
+const { ResponsiveContainer, AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Legend, Cell } = Recharts;
+const CLAVE = "finvital-db-v1";
+const C = { indigo: "var(--indigo)", emerald: "var(--emerald)", amber: "var(--amber)", rose: "var(--rose)" };
+
+// ------------------------------------------------------------ utilidades
+const uid = () => Math.random().toString(36).slice(2, 9);
+const norm = (t) => String(t ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+const pad = (n) => String(n).padStart(2, "0");
+const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const fecha = (s) => new Date(s + "T12:00:00");
+const hoy = () => fecha(iso(new Date()));
+const dias = (a, b) => Math.round((b - a) / 864e5);
+const masDias = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const lunes = (s) => { const d = fecha(s); return iso(masDias(d, -((d.getDay() + 6) % 7))); };
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const MESES_L = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+const corto = (s) => { const d = fecha(s); return `${d.getDate()} ${MESES[d.getMonth()]}`; };
+
+function aNumero(v) {
+  if (typeof v === "number") return isFinite(v) ? v : 0;
+  let s = String(v ?? "").replace(/[^\d,.\-]/g, "");
+  if (!s) return 0;
+  const c = s.lastIndexOf(","), p = s.lastIndexOf(".");
+  if (c > -1 && p > -1) s = c > p ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
+  else if (c > -1) s = /,\d{1,2}$/.test(s) ? s.replace(",", ".") : s.replace(/,/g, "");
+  const n = parseFloat(s); return isFinite(n) ? n : 0;
+}
+// Devuelve {f: "AAAA-MM-DD", mes: true|false} o null
+function aFecha(v) {
+  const s = String(v ?? "").trim(); if (!s) return null;
+  let m;
+  if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return { f: `${m[1]}-${pad(m[2])}-${pad(m[3])}`, mes: false };
+  if ((m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/))) return { f: `${m[3].length === 2 ? "20" + m[3] : m[3]}-${pad(m[2])}-${pad(m[1])}`, mes: false };
+  if ((m = s.match(/^(\d{4})[\/\-](\d{1,2})$/))) return { f: `${m[1]}-${pad(m[2])}-01`, mes: true };
+  if ((m = s.match(/^(\d{1,2})[\/\-](\d{4})$/))) return { f: `${m[2]}-${pad(m[1])}-01`, mes: true };
+  const n = norm(s), i = MESES_L.findIndex((x) => n.startsWith(x) || n.startsWith(x.slice(0, 3)));
+  if (i > -1) { const a = (n.match(/\d{4}/) || [new Date().getFullYear()])[0]; return { f: `${a}-${pad(i + 1)}-01`, mes: true }; }
+  const d = new Date(s); return isNaN(d) ? null : { f: iso(d), mes: false };
+}
+function deCSV(t) {
+  const filas = []; let f = [], c = "", q = false; t = t.replace(/^﻿/, "");
+  const sep = (t.split("\n")[0].match(/;/g) || []).length > (t.split("\n")[0].match(/,/g) || []).length ? ";" : t.includes("\t") && !t.includes(",") ? "\t" : ",";
+  for (let i = 0; i < t.length; i++) { const ch = t[i];
+    if (q) { if (ch === '"') { if (t[i + 1] === '"') { c += '"'; i++; } else q = false; } else c += ch; }
+    else if (ch === '"') q = true; else if (ch === sep) { f.push(c); c = ""; }
+    else if (ch === "\n") { f.push(c); filas.push(f); f = []; c = ""; } else if (ch !== "\r") c += ch; }
+  if (c || f.length) { f.push(c); filas.push(f); }
+  return filas.filter((x) => x.some((y) => String(y).trim()));
+}
+const COLUMNAS = {
+  gastos: { fecha: ["fecha", "dia", "date"], categoria: ["tipo", "categoria", "concepto", "rubro"], monto: ["monto", "importe", "valor", "total", "gasto"], tarjeta: ["tarjeta", "medio", "pago"] },
+  salud: { fecha: ["fecha", "mes", "semana", "periodo"], calorias: ["calorias", "kcal", "cal"], diasGym: ["dias gym", "gym", "asistencia", "dias", "entrenamientos"] },
+  rutina: { fecha: ["fecha", "dia"], ejercicio: ["ejercicio", "movimiento"], peso: ["peso", "carga", "kg"], reps: ["repeticiones", "reps", "rep"] },
+};
+// Acepta texto CSV, JSON de Apps Script (lista de objetos o de filas) y devuelve filas limpias
+function interpretar(tipo, texto) {
+  let filas; const t = texto.trim();
+  if (!t) return [];
+  if (t[0] === "[" || t[0] === "{") {
+    let j = JSON.parse(t);
+    if (!Array.isArray(j)) j = j.data || j.datos || j.rows || j.filas || j.values || Object.values(j).find(Array.isArray) || [];
+    filas = j.length && !Array.isArray(j[0]) ? [Object.keys(j[0]), ...j.map((o) => Object.values(o))] : j;
+  } else filas = deCSV(t);
+  if (filas.length < 2) throw new Error("no encontré filas con datos");
+  const cab = filas[0].map(norm), mapa = {};
+  for (const [campo, alias] of Object.entries(COLUMNAS[tipo])) mapa[campo] = cab.findIndex((c) => alias.some((a) => c === a || c.includes(a)));
+  const falta = Object.entries(mapa).filter(([k, i]) => i < 0 && k !== "tarjeta").map(([k]) => k);
+  if (falta.length) throw new Error("faltan las columnas: " + falta.join(", "));
+  const v = (f, k) => mapa[k] < 0 ? "" : f[mapa[k]];
+  return filas.slice(1).map((f) => {
+    const d = aFecha(v(f, "fecha")); if (!d) return null;
+    if (tipo === "gastos") return { fecha: d.f, categoria: String(v(f, "categoria") || "Otros").trim(), monto: Math.abs(aNumero(v(f, "monto"))), tarjeta: String(v(f, "tarjeta") || "").trim() };
+    if (tipo === "salud") return { fecha: d.f, mes: d.mes, calorias: aNumero(v(f, "calorias")), diasGym: aNumero(v(f, "diasGym")) };
+    return { fecha: d.f, ejercicio: String(v(f, "ejercicio") || "").trim(), peso: aNumero(v(f, "peso")), reps: aNumero(v(f, "reps")) };
+  }).filter((x) => x && (tipo !== "rutina" || x.ejercicio)).sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+const CAB = { gastos: ["fecha", "categoria", "monto", "tarjeta"], salud: ["fecha", "calorias", "diasGym"], rutina: ["fecha", "ejercicio", "peso", "reps"] };
+const aCSV = (tipo, filas) => [CAB[tipo].join(","), ...filas.map((f) => CAB[tipo].map((c) => { const s = String(c === "fecha" && f.mes ? f.fecha.slice(0, 7) : f[c] ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(","))].join("\n");
+
+// ------------------------------------------------------------ datos de prueba
+function ejemplo() {
+  let semilla = 7; const azar = () => (semilla = (semilla * 16807) % 2147483647) / 2147483647;
+  const h = hoy(), gastos = [], salud = [], rutina = [];
+  const cats = [["Comida", 14, 34, .75], ["Snacks", 4, 12, .45], ["Transporte", 5, 14, .6], ["Ocio", 20, 70, .12], ["Estudios", 30, 90, .06], ["Servicios", 40, 80, .04]];
+  for (let i = 110; i >= 0; i--) {
+    const d = masDias(h, -i), f = iso(d);
+    cats.forEach(([c, a, b, p]) => { if (azar() < p) gastos.push({ fecha: f, categoria: c, monto: Math.round((a + azar() * (b - a)) * 10) / 10, tarjeta: azar() < .35 ? "Visa Signature" : "" }); });
+    if (d.getDate() === 1 || i === 110) gastos.push({ fecha: f, categoria: "Ingreso", monto: 2400, tarjeta: "" });
+  }
+  const l0 = fecha(lunes(iso(h)));
+  for (let w = 13; w >= 0; w--) {
+    const ini = masDias(l0, -7 * w);
+    const gym = w === 0 ? Math.min(3, (h.getDay() + 6) % 7) : Math.round(2.4 + azar() * 2.6);
+    salud.push({ fecha: iso(ini), mes: false, calorias: Math.round(2050 + azar() * 520), diasGym: clamp(gym, 0, 6) });
+    [["Press banca", 55, 1.1], ["Sentadilla", 75, 1.6], ["Peso muerto", 90, 1.9], ["Dominadas lastradas", 5, .6]].forEach(([e, base, inc], k) => {
+      if (w === 0 && k > 1) return;
+      rutina.push({ fecha: iso(masDias(ini, k % 3)), ejercicio: e, peso: Math.round((base + (13 - w) * inc + (azar() - .5) * 2) * 2) / 2, reps: 5 + Math.round(azar() * 3) });
+    });
+  }
+  return {
+    demo: true, tema: "dark", moneda: "S/",
+    fuentes: { gastos: "", salud: "", rutina: "" },
+    metas: { ingresoMensual: 2400, presupuestoMensual: 1700, calorias: 2300, tolerancia: 8, gymSemanal: 4, comida: "comida, snacks, restaurante, delivery, mercado, almuerzo, cena, desayuno" },
+    cuentas: [{ id: uid(), nombre: "Cuenta sueldo", saldo: 1850 }, { id: uid(), nombre: "Billetera digital", saldo: 320 }],
+    cajitas: [{ id: uid(), nombre: "Fondo de emergencia", saldo: 2600, meta: 6000 }, { id: uid(), nombre: "Inversión a futuro", saldo: 1500, meta: 10000 }, { id: uid(), nombre: "Libros", saldo: 180, meta: 400 }],
+    tarjetas: [
+      { id: uid(), nombre: "Visa Signature", limite: 5000, cierre: 10, pago: 5, meta: 1000, deuda: 640, defecto: false },
+      { id: uid(), nombre: "Mastercard Clásica", limite: 2500, cierre: 24, pago: 18, meta: 500, deuda: 210, defecto: true },
+    ],
+    gastos, salud, rutina,
+  };
+}
+function sanear(d) {
+  const b = ejemplo(); d = d && typeof d === "object" ? d : {};
+  const o = { ...b, ...d, demo: !!d.demo, fuentes: { ...b.fuentes, ...(d.fuentes || {}) }, metas: { ...b.metas, ...(d.metas || {}) } };
+  for (const k of ["cuentas", "cajitas", "tarjetas", "gastos", "salud", "rutina"]) o[k] = Array.isArray(d[k]) ? d[k] : b[k];
+  return o;
+}
+function cargarDB() { try { const g = JSON.parse(localStorage.getItem(CLAVE)); return g ? sanear(g) : ejemplo(); } catch (e) { return ejemplo(); } }
+
+// ------------------------------------------------------------ cálculos
+const esIngreso = (g) => /ingreso|sueldo|salario|pago recibido|abono/.test(norm(g.categoria));
+const mesDe = (f) => f.slice(0, 7);
+function diaDelMes(a, m, d) { return new Date(a, m, Math.min(d, new Date(a, m + 1, 0).getDate()), 12); }
+function ciclo(t, h) {
+  let cierre = diaDelMes(h.getFullYear(), h.getMonth(), t.cierre);
+  if (cierre < h) cierre = diaDelMes(h.getFullYear(), h.getMonth() + 1, t.cierre);
+  const anterior = diaDelMes(cierre.getFullYear(), cierre.getMonth() - 1, t.cierre);
+  let pago = diaDelMes(cierre.getFullYear(), cierre.getMonth(), t.pago);
+  if (pago <= cierre) pago = diaDelMes(cierre.getFullYear(), cierre.getMonth() + 1, t.pago);
+  return { inicio: masDias(anterior, 1), cierre, pago, diasCierre: dias(h, cierre), financiamiento: dias(h, pago) };
+}
+function calcular(db) {
+  const h = hoy(), mesAct = iso(h).slice(0, 7), M = db.metas;
+  const gastos = db.gastos.filter((g) => !esIngreso(g)), ingresos = db.gastos.filter(esIngreso);
+  const suma = (xs) => xs.reduce((a, x) => a + x.monto, 0);
+  const meses = []; for (let i = 5; i >= 0; i--) { const d = new Date(h.getFullYear(), h.getMonth() - i, 1, 12); meses.push(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`); }
+  const porMes = meses.map((m) => {
+    const g = suma(gastos.filter((x) => mesDe(x.fecha) === m)), ing = suma(ingresos.filter((x) => mesDe(x.fecha) === m)) || (g ? M.ingresoMensual : 0);
+    return { mes: m, gasto: g, ingreso: ing, ahorro: ing - g };
+  }).filter((x) => x.gasto || x.ingreso);
+  const act = porMes.find((x) => x.mes === mesAct) || { gasto: 0, ingreso: M.ingresoMensual, ahorro: M.ingresoMensual };
+  const completos = porMes.filter((x) => x.mes !== mesAct).slice(-3);
+  const gastoProm = completos.length ? suma(completos.map((x) => ({ monto: x.gasto }))) / completos.length : act.gasto;
+  const ahorroProm = completos.length ? completos.reduce((a, x) => a + x.ahorro, 0) / completos.length : act.ahorro;
+  const liquido = db.cuentas.reduce((a, x) => a + (+x.saldo || 0), 0), cajitas = db.cajitas.reduce((a, x) => a + (+x.saldo || 0), 0);
+  const deuda = db.tarjetas.reduce((a, x) => a + (+x.deuda || 0), 0);
+  const patrimonio = liquido + cajitas - deuda;
+  const proy = Array.from({ length: 13 }, (_, i) => ({ m: i, etiqueta: i === 0 ? "Hoy" : `+${i}`, valor: Math.round(patrimonio + ahorroProm * i) }));
+
+  // tarjetas
+  const defecto = db.tarjetas.find((t) => t.defecto);
+  const tarjetas = db.tarjetas.map((t) => {
+    const c = ciclo(t, h), i0 = iso(c.inicio), h0 = iso(h);
+    const mias = gastos.filter((g) => g.fecha >= i0 && g.fecha <= h0 && (g.tarjeta ? norm(g.tarjeta) === norm(t.nombre) : defecto && defecto.id === t.id));
+    const consumo = suma(mias);
+    return { ...t, ...c, consumo, falta: Math.max(0, (+t.meta || 0) - consumo), pct: t.meta ? clamp(consumo / t.meta) * 100 : 0, uso: t.limite ? clamp(((+t.deuda || 0)) / t.limite) * 100 : 0 };
+  });
+  const mejor = tarjetas.length ? tarjetas.reduce((a, b) => (b.financiamiento > a.financiamiento ? b : a)) : null;
+
+  // semanas
+  const l0 = fecha(lunes(iso(h))), semanas = Array.from({ length: 8 }, (_, i) => iso(masDias(l0, -7 * (7 - i))));
+  const comidas = M.comida.split(",").map(norm).filter(Boolean);
+  const esComida = (g) => comidas.some((c) => norm(g.categoria).includes(c));
+  const saludSem = (s) => {
+    const fila = db.salud.find((x) => !x.mes && lunes(x.fecha) === s);
+    if (fila) return { calorias: fila.calorias, gym: fila.diasGym };
+    const m = db.salud.find((x) => x.mes && mesDe(x.fecha) === mesDe(s));
+    return m ? { calorias: m.calorias, gym: Math.round((m.diasGym / 4.345) * 10) / 10 } : null;
+  };
+  const semanal = semanas.map((s) => {
+    const fin = iso(masDias(fecha(s), 6)), sal = saludSem(s);
+    return { semana: s, etiqueta: corto(s), comida: Math.round(suma(gastos.filter((g) => g.fecha >= s && g.fecha <= fin && esComida(g)))), cumplimiento: sal && M.calorias ? Math.round((sal.calorias / M.calorias) * 100) : null, calorias: sal ? sal.calorias : null, gym: sal ? sal.gym : null };
+  });
+  const semAct = semanal[7];
+
+  // progresión de cargas
+  const cuenta = {}; db.rutina.forEach((r) => cuenta[r.ejercicio] = (cuenta[r.ejercicio] || 0) + 1);
+  const ejercicios = Object.entries(cuenta).sort((a, b) => b[1] - a[1]).map((x) => x[0]);
+  const progreso = (ej) => { const por = {}; db.rutina.filter((r) => r.ejercicio === ej).forEach((r) => { if (!por[r.fecha] || r.peso > por[r.fecha].peso) por[r.fecha] = r; }); return Object.values(por).sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(-14).map((r) => ({ etiqueta: corto(r.fecha), peso: r.peso, reps: r.reps })); };
+
+  // índice de disciplina
+  const diasMes = new Date(h.getFullYear(), h.getMonth() + 1, 0).getDate(), prorrata = (M.presupuestoMensual || 0) * (h.getDate() / diasMes);
+  const dPresu = !M.presupuestoMensual ? null : act.gasto <= prorrata ? 1 : clamp(1 - (act.gasto - prorrata) / prorrata);
+  const ult4 = semanal.slice(-4).filter((x) => x.gym != null);
+  const dGym = ult4.length && M.gymSemanal ? ult4.reduce((a, x) => a + clamp(x.gym / M.gymSemanal), 0) / ult4.length : null;
+  const dCal = ult4.length && M.calorias ? ult4.reduce((a, x) => { const dev = Math.abs(x.calorias - M.calorias) / M.calorias, tol = (M.tolerancia || 0) / 100; return a + (dev <= tol ? 1 : clamp(1 - (dev - tol) / .25)); }, 0) / ult4.length : null;
+  const partes = [dPresu, dGym, dCal].filter((x) => x != null);
+  const disciplina = partes.length ? Math.round((partes.reduce((a, b) => a + b, 0) / partes.length) * 100) : null;
+
+  return { act, porMes, gastoProm, ahorroProm, liquido, cajitas, deuda, patrimonio, proy, tarjetas, mejor, semanal, semAct, ejercicios, progreso,
+    tasaAhorro: act.ingreso ? (act.ingreso - act.gasto) / act.ingreso : null, runway: gastoProm ? (liquido + cajitas) / gastoProm : null,
+    disciplina, dPresu, dGym, dCal, prorrata };
+}
+
+// ------------------------------------------------------------ piezas
+function Tip({ active, payload, label, fmt }) {
+  if (!active || !payload || !payload.length) return null;
+  return html`<div class="tip"><b>${label}</b>${payload.filter((p) => p.value != null).map((p) => html`<div key=${p.dataKey}><span><i style=${{ background: p.color || p.fill }}></i>${p.name}</span><span class="num">${fmt ? fmt(p.value, p.dataKey) : p.value}</span></div>`)}</div>`;
+}
+const Num = ({ value, onChange, ...r }) => html`<input type="number" inputMode="decimal" value=${value} onChange=${(e) => onChange(e.target.value === "" ? "" : +e.target.value)} ...${r} />`;
+
+function App() {
+  const [db, setDB] = useState(cargarDB);
+  const [modal, setModal] = useState(false);
+  const [aviso, setAviso] = useState("");
+  const [ej, setEj] = useState("");
+  const t = useRef();
+  const toast = (m) => { setAviso(m); clearTimeout(t.current); t.current = setTimeout(() => setAviso(""), 3200); };
+  useEffect(() => { try { localStorage.setItem(CLAVE, JSON.stringify(db)); } catch (e) {} document.documentElement.dataset.theme = db.tema; }, [db]);
+  const k = useMemo(() => calcular(db), [db]);
+  const S = (n, dec = 0) => `${n < 0 ? "−" : ""}${db.moneda} ${Math.abs(n).toLocaleString("es-PE", { minimumFractionDigits: dec, maximumFractionDigits: dec })}`;
+  const upd = (f) => setDB((d) => ({ ...f(d), demo: false }));
+  const lista = (key) => ({
+    set: (id, campo, v) => upd((d) => ({ ...d, [key]: d[key].map((x) => x.id === id ? { ...x, [campo]: v } : x) })),
+    add: (x) => upd((d) => ({ ...d, [key]: [...d[key], { id: uid(), ...x }] })),
+    del: (id) => upd((d) => ({ ...d, [key]: d[key].filter((x) => x.id !== id) })),
+  });
+  const cuentas = lista("cuentas"), cajitas = lista("cajitas"), tarjetas = lista("tarjetas");
+  const ejSel = k.ejercicios.includes(ej) ? ej : k.ejercicios[0];
+  const prog = ejSel ? k.progreso(ejSel) : [];
+  const col = (v) => v == null ? "var(--muted)" : v >= .8 ? C.emerald : v >= .5 ? C.amber : C.rose;
+  const L = 2 * Math.PI * 56;
+  const gymHoy = k.semAct.gym ?? 0;
+
+  return html`
+  <header class="top"><div class="top-in">
+    <div class="logo"><i></i>FinVital OS</div>
+    <nav class="nav"><a href="#patrimonio">Patrimonio</a><a href="#tarjetas">Tarjetas</a><a href="#vital">Estado vital</a></nav>
+    <button class="btn ghost" title="Cambiar tema" onClick=${() => setDB((d) => ({ ...d, tema: d.tema === "dark" ? "light" : "dark" }))}>${db.tema === "dark" ? "☀" : "☾"}</button>
+    <button class="btn" onClick=${() => setModal(true)}>Conexión de datos</button>
+  </div></header>
+  <div class="wrap">
+    ${db.demo && html`<div class="banner"><span>Estás viendo <b>datos de prueba</b>. Conecta tus hojas o edita los saldos para usar los tuyos.</span><button class="btn sm sec" onClick=${() => setModal(true)}>Conectar mis datos</button></div>`}
+
+    <section id="patrimonio">
+      <div class="sec-h"><div><p class="eyebrow">Patrimonio y flujo</p><h1>Tu posición hoy</h1></div><span class="muted" style=${{ fontSize: 12.5 }}>${new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" })}</span></div>
+      <div class="grid g3">
+        <div class="card kpi"><div class="lbl">Patrimonio neto total</div><b class="num">${S(k.patrimonio)}</b><div class="sub">Líquido ${S(k.liquido)} + cajitas ${S(k.cajitas)} − deuda ${S(k.deuda)}</div></div>
+        <div class="card kpi"><div class="lbl">Tasa de ahorro real del mes</div><b class="num" style=${{ color: k.tasaAhorro == null ? "inherit" : k.tasaAhorro >= .2 ? C.emerald : k.tasaAhorro >= 0 ? C.amber : C.rose }}>${k.tasaAhorro == null ? "—" : Math.round(k.tasaAhorro * 100) + "%"}</b><div class="sub">Ingresos ${S(k.act.ingreso)} · gastos ${S(k.act.gasto)}</div></div>
+        <div class="card kpi"><div class="lbl">Runway personal</div><b class="num">${k.runway == null ? "—" : k.runway.toFixed(1)} <span style=${{ fontSize: 15, fontWeight: 500 }} class="muted">meses</span></b><div class="sub">Ahorros ${S(k.liquido + k.cajitas)} ÷ gasto mensual ${S(k.gastoProm)}</div></div>
+      </div>
+      <div class="grid g2" style=${{ marginTop: 12 }}>
+        <div class="card stack">
+          <div class="row"><h3 class="grow">Cuentas líquidas</h3><button class="btn sm sec" onClick=${() => cuentas.add({ nombre: "Nueva cuenta", saldo: 0 })}>+ Cuenta</button></div>
+          ${db.cuentas.map((c) => html`<div class="saldo" key=${c.id}><input type="text" value=${c.nombre} onChange=${(e) => cuentas.set(c.id, "nombre", e.target.value)} /><${Num} value=${c.saldo} onChange=${(v) => cuentas.set(c.id, "saldo", v)} /><button class="btn ghost" title="Quitar" onClick=${() => cuentas.del(c.id)}>✕</button></div>`)}
+          <div class="row" style=${{ marginTop: 6 }}><h3 class="grow">Cajitas de ahorro e inversión</h3><button class="btn sm sec" onClick=${() => cajitas.add({ nombre: "Nueva cajita", saldo: 0, meta: 0 })}>+ Cajita</button></div>
+          <div class="saldo c4"><span class="h">Nombre</span><span class="h">Saldo</span><span class="h">Meta</span><span></span></div>
+          ${db.cajitas.map((c) => html`<div key=${c.id} class="stack" style=${{ gap: 5 }}>
+            <div class="saldo c4"><input type="text" value=${c.nombre} onChange=${(e) => cajitas.set(c.id, "nombre", e.target.value)} /><${Num} value=${c.saldo} onChange=${(v) => cajitas.set(c.id, "saldo", v)} /><${Num} value=${c.meta} onChange=${(v) => cajitas.set(c.id, "meta", v)} /><button class="btn ghost" title="Quitar" onClick=${() => cajitas.del(c.id)}>✕</button></div>
+            ${+c.meta > 0 && html`<div class="row" style=${{ gap: 10 }}><div class="bar em grow"><i style=${{ width: clamp(c.saldo / c.meta) * 100 + "%" }}></i></div><span class="muted num" style=${{ fontSize: 12 }}>${Math.round(clamp(c.saldo / c.meta) * 100)}%</span></div>`}
+          </div>`)}
+        </div>
+        <div class="card stack">
+          <div class="row"><div class="grow"><h3>Patrimonio proyectado</h3><p class="muted" style=${{ fontSize: 12.5 }}>Con tu ahorro mensual promedio de ${S(k.ahorroProm)} (últimos meses completos)</p></div>
+            <span class="chip in">6 meses · ${S(k.proy[6].valor)}</span><span class="chip em">12 meses · ${S(k.proy[12].valor)}</span></div>
+          <div class="chart"><${ResponsiveContainer}><${AreaChart} data=${k.proy} margin=${{ top: 10, right: 12, left: 0, bottom: 0 }}>
+            <defs><linearGradient id="gp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--indigo)" stopOpacity=".35"/><stop offset="1" stopColor="var(--indigo)" stopOpacity="0"/></linearGradient></defs>
+            <${CartesianGrid} stroke="var(--grid)" vertical=${false} /><${XAxis} dataKey="etiqueta" tickLine=${false} axisLine=${false} /><${YAxis} tickLine=${false} axisLine=${false} width=${52} tickFormatter=${(v) => Math.abs(v) >= 1000 ? (v / 1000).toFixed(1) + "k" : v} domain=${["auto", "auto"]} />
+            <${Tooltip} content=${html`<${Tip} fmt=${(v) => S(v)} />`} /><${ReferenceLine} x="+6" stroke="var(--muted)" strokeDasharray="3 3" /><${ReferenceLine} x="+12" stroke="var(--muted)" strokeDasharray="3 3" />
+            <${Area} type="monotone" dataKey="valor" name="Patrimonio" stroke="var(--indigo)" strokeWidth=${2} fill="url(#gp)" dot=${false} activeDot=${{ r: 4 }} />
+          <//><//></div>
+          <p class="muted" style=${{ fontSize: 12 }}>Proyección lineal: no incluye intereses ni cambios en tus ingresos. Meses desde hoy en el eje horizontal.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="tarjetas">
+      <div class="sec-h"><div><p class="eyebrow">Tarjetas de crédito</p><h2>Metas de consumo y mejor momento de pago</h2></div><button class="btn sm sec" onClick=${() => tarjetas.add({ nombre: "Nueva tarjeta", limite: 1000, cierre: 15, pago: 10, meta: 0, deuda: 0, defecto: !db.tarjetas.length })}>+ Tarjeta</button></div>
+      ${k.mejor && k.tarjetas.length > 1 && html`<div class="card" style=${{ marginBottom: 12, padding: "11px 14px" }}><span class="chip em">Hoy conviene</span> <b>${k.mejor.nombre}</b>: una compra hecha hoy se paga el ${corto(iso(k.mejor.pago))}, dentro de <b>${k.mejor.financiamiento} días</b>.</div>`}
+      <div class="grid" style=${{ gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
+        ${k.tarjetas.map((t) => html`<div class="card stack" key=${t.id}>
+          <div class="tar-h"><div class="grow"><input type="text" value=${t.nombre} style=${{ fontWeight: 600 }} onChange=${(e) => tarjetas.set(t.id, "nombre", e.target.value)} /></div>
+            ${k.mejor && k.mejor.id === t.id && k.tarjetas.length > 1 ? html`<span class="chip em">Usar hoy</span>` : t.diasCierre <= 2 ? html`<span class="chip am">Cierra pronto</span>` : null}
+            <button class="btn ghost" title="Quitar" onClick=${() => confirm("¿Quitar esta tarjeta?") && tarjetas.del(t.id)}>✕</button></div>
+          <div>
+            <div class="row" style=${{ justifyContent: "space-between", marginBottom: 6 }}><span style=${{ fontSize: 13 }}>Consumo del ciclo <b class="num">${S(t.consumo)}</b> ${+t.meta > 0 && html`<span class="muted">de ${S(+t.meta)}</span>`}</span>
+              ${+t.meta > 0 ? (t.falta <= 0 ? html`<span class="chip em">✓ Meta cumplida</span>` : html`<span class="chip am">Faltan ${S(t.falta, 2)}</span>`) : html`<span class="chip">Sin meta</span>`}</div>
+            <div class=${"bar " + (t.falta <= 0 && +t.meta > 0 ? "em" : "")}><i style=${{ width: t.pct + "%" }}></i></div>
+          </div>
+          <div>
+            <div class="dato"><span>Ciclo actual</span><span>${corto(iso(t.inicio))} – ${corto(iso(t.cierre))}</span></div>
+            <div class="dato"><span>Días hasta el cierre</span><b class="num">${t.diasCierre === 0 ? "Cierra hoy" : t.diasCierre}</b></div>
+            <div class="dato"><span>Si compras hoy, pagas el</span><span>${corto(iso(t.pago))} · <b class="num">${t.financiamiento} días</b></span></div>
+            <div class="dato"><span>Uso del límite</span><span class="num">${S(+t.deuda || 0)} de ${S(+t.limite || 0)} · ${Math.round(t.uso)}%</span></div>
+          </div>
+          <details><summary class="muted" style=${{ cursor: "pointer", fontSize: 12.5 }}>Editar datos de la tarjeta</summary>
+            <div class="fgrid" style=${{ marginTop: 8 }}>
+              <label class="f">Límite de crédito<${Num} value=${t.limite} onChange=${(v) => tarjetas.set(t.id, "limite", v)} /></label>
+              <label class="f">Deuda actual<${Num} value=${t.deuda} onChange=${(v) => tarjetas.set(t.id, "deuda", v)} /></label>
+              <label class="f">Día de cierre<${Num} value=${t.cierre} min="1" max="31" onChange=${(v) => tarjetas.set(t.id, "cierre", clamp(+v || 1, 1, 31))} /></label>
+              <label class="f">Día de pago<${Num} value=${t.pago} min="1" max="31" onChange=${(v) => tarjetas.set(t.id, "pago", clamp(+v || 1, 1, 31))} /></label>
+              <label class="f full">Meta de consumo mensual para exonerar la membresía<${Num} value=${t.meta} onChange=${(v) => tarjetas.set(t.id, "meta", v)} /></label>
+              <label class="row full" style=${{ fontSize: 12.5 }}><input type="checkbox" checked=${!!t.defecto} onChange=${(e) => upd((d) => ({ ...d, tarjetas: d.tarjetas.map((x) => ({ ...x, defecto: x.id === t.id ? e.target.checked : false })) }))} /> Sumar aquí los gastos que no indican tarjeta</label>
+            </div></details>
+        </div>`)}
+        ${!k.tarjetas.length && html`<div class="card muted">Agrega tu primera tarjeta con «+ Tarjeta».</div>`}
+      </div>
+      <p class="muted" style=${{ fontSize: 12, marginTop: 8 }}>El consumo se suma desde tu hoja de gastos: si un gasto trae la columna «Tarjeta» va a esa tarjeta; si no, va a la marcada para recibir los gastos sin tarjeta.</p>
+    </section>
+
+    <section id="vital">
+      <div class="sec-h"><div><p class="eyebrow">Estado vital</p><h2>Finanzas, gym y calorías en un solo panel</h2></div></div>
+      <div class="grid g2 eq">
+        <div class="card">
+          <div class="row" style=${{ gap: 18 }}>
+            <div class="ring"><svg viewBox="0 0 132 132"><circle cx="66" cy="66" r="56" fill="none" stroke="var(--surface-2)" strokeWidth="11"/><circle cx="66" cy="66" r="56" fill="none" stroke=${col(k.disciplina == null ? null : k.disciplina / 100)} strokeWidth="11" strokeLinecap="round" strokeDasharray=${L} strokeDashoffset=${L * (1 - (k.disciplina || 0) / 100)}/></svg>
+              <div><b class="num">${k.disciplina == null ? "—" : k.disciplina + "%"}</b><span>Disciplina global</span></div></div>
+            <div class="comp">
+              ${[["Presupuesto", k.dPresu, `${S(k.act.gasto)} de ${S(k.prorrata)} a la fecha`], ["Días de gym", k.dGym, `Meta ${db.metas.gymSemanal} por semana · últimas 4`], ["Meta calórica", k.dCal, `Meta ${db.metas.calorias} kcal ± ${db.metas.tolerancia}%`]].map(([n, v, s]) => html`<div key=${n}>
+                <div class="l"><span>${n} <span class="muted">· ${s}</span></span><b class="num">${v == null ? "—" : Math.round(v * 100) + "%"}</b></div>
+                <div class="bar"><i style=${{ width: (v || 0) * 100 + "%", background: col(v) }}></i></div></div>`)}
+            </div>
+          </div>
+          <p class="muted" style=${{ fontSize: 12, marginTop: 12 }}>Promedio simple de los tres componentes, cada uno de 0 a 100%.</p>
+        </div>
+        <div class="card stack">
+          <div class="row"><div class="grow"><h3>Consistencia semanal</h3><p class="muted" style=${{ fontSize: 12.5 }}>${gymHoy} de ${db.metas.gymSemanal} días entrenados esta semana</p></div>
+            <div class="dots">${Array.from({ length: Math.max(db.metas.gymSemanal, Math.ceil(gymHoy)) || 1 }, (_, i) => html`<i key=${i} class=${i < gymHoy ? "on" : ""}></i>`)}</div></div>
+          <div class="chart sm"><${ResponsiveContainer}><${BarChart} data=${k.semanal} margin=${{ top: 8, right: 8, left: -18, bottom: 0 }}>
+            <${CartesianGrid} stroke="var(--grid)" vertical=${false} /><${XAxis} dataKey="etiqueta" tickLine=${false} axisLine=${false} /><${YAxis} tickLine=${false} axisLine=${false} allowDecimals=${false} domain=${[0, 7]} ticks=${[0, 2, 4, 6]} />
+            <${Tooltip} cursor=${{ fill: "var(--surface-2)" }} content=${html`<${Tip} fmt=${(v) => v + " días"} />`} /><${ReferenceLine} y=${db.metas.gymSemanal} stroke="var(--muted)" strokeDasharray="4 3" label=${{ value: "meta", position: "insideTopRight", fill: "var(--muted)", fontSize: 11 }} />
+            <${Bar} dataKey="gym" name="Días de gym" radius=${[4, 4, 0, 0]} maxBarSize=${26}>${k.semanal.map((s, i) => html`<${Cell} key=${i} fill=${(s.gym ?? 0) >= db.metas.gymSemanal ? "var(--emerald)" : "var(--indigo)"} />`)}<//>
+          <//><//></div>
+          <div class="row" style=${{ fontSize: 12 }}><span class="chip em">Meta cumplida</span><span class="chip in">Por debajo de la meta</span></div>
+        </div>
+      </div>
+      <div class="grid g2 eq" style=${{ marginTop: 12 }}>
+        <div class="card stack">
+          <div><h3>Gasto en comida y snacks vs. meta calórica</h3><p class="muted" style=${{ fontSize: 12.5 }}>Dos gráficos con las mismas semanas: pasa el cursor para compararlas.</p></div>
+          <div class="chart sm"><${ResponsiveContainer}><${BarChart} data=${k.semanal} syncId="vital" margin=${{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <${CartesianGrid} stroke="var(--grid)" vertical=${false} /><${XAxis} dataKey="etiqueta" tickLine=${false} axisLine=${false} hide=${true} /><${YAxis} tickLine=${false} axisLine=${false} width=${44} />
+            <${Tooltip} cursor=${{ fill: "var(--surface-2)" }} content=${html`<${Tip} fmt=${(v) => S(v)} />`} /><${Bar} dataKey="comida" name="Gasto en comida" fill="var(--indigo)" radius=${[4, 4, 0, 0]} maxBarSize=${26} />
+          <//><//></div>
+          <div class="chart sm"><${ResponsiveContainer}><${LineChart} data=${k.semanal} syncId="vital" margin=${{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <${CartesianGrid} stroke="var(--grid)" vertical=${false} /><${XAxis} dataKey="etiqueta" tickLine=${false} axisLine=${false} /><${YAxis} tickLine=${false} axisLine=${false} width=${44} domain=${[70, 130]} tickFormatter=${(v) => v + "%"} />
+            <${Tooltip} content=${html`<${Tip} fmt=${(v) => v + "% de la meta"} />`} /><${ReferenceLine} y=${100} stroke="var(--muted)" strokeDasharray="4 3" label=${{ value: "meta", position: "insideTopRight", fill: "var(--muted)", fontSize: 11 }} />
+            <${Line} type="monotone" dataKey="cumplimiento" name="Calorías" stroke="var(--emerald)" strokeWidth=${2} dot=${{ r: 4, strokeWidth: 0, fill: "var(--emerald)" }} connectNulls=${true} />
+          <//><//></div>
+          <div class="row" style=${{ fontSize: 12 }}><span class="chip in">■ Gasto semanal en comida (${db.moneda})</span><span class="chip em">● Calorías como % de la meta</span></div>
+        </div>
+        <div class="card stack">
+          <div class="row"><div class="grow"><h3>Progresión de cargas</h3><p class="muted" style=${{ fontSize: 12.5 }}>Mejor peso por sesión${prog.length > 1 ? html` · <b style=${{ color: prog.at(-1).peso >= prog[0].peso ? C.emerald : C.rose }}>${prog.at(-1).peso - prog[0].peso >= 0 ? "+" : ""}${(prog.at(-1).peso - prog[0].peso).toFixed(1)} kg</b> en el periodo` : ""}</p></div></div>
+          <div class="row">${k.ejercicios.slice(0, 5).map((e) => html`<button key=${e} class=${"btn sm " + (e === ejSel ? "" : "sec")} onClick=${() => setEj(e)}>${e}</button>`)}</div>
+          ${prog.length ? html`<div class="chart"><${ResponsiveContainer}><${LineChart} data=${prog} margin=${{ top: 8, right: 10, left: 0, bottom: 0 }}>
+            <${CartesianGrid} stroke="var(--grid)" vertical=${false} /><${XAxis} dataKey="etiqueta" tickLine=${false} axisLine=${false} minTickGap=${18} /><${YAxis} tickLine=${false} axisLine=${false} width=${44} domain=${["dataMin - 5", "dataMax + 5"]} tickFormatter=${(v) => Math.round(v)} />
+            <${Tooltip} content=${html`<${Tip} fmt=${(v) => v + " kg"} />`} /><${Line} type="monotone" dataKey="peso" name=${ejSel} stroke="var(--indigo)" strokeWidth=${2} dot=${{ r: 3, strokeWidth: 0, fill: "var(--indigo)" }} activeDot=${{ r: 5 }} />
+          <//><//></div>` : html`<p class="muted">Aún no hay registros de rutina.</p>`}
+        </div>
+      </div>
+    </section>
+  </div>
+  ${modal && html`<${Datos} db=${db} setDB=${setDB} cerrar=${() => setModal(false)} toast=${toast} />`}
+  ${aviso && html`<div class="toast">${aviso}</div>`}`;
+}
+
+// ------------------------------------------------------------ conexión de datos
+const NOMBRES = { gastos: "Gastos personales", salud: "Calorías y gym", rutina: "Rutina y cargas" };
+const COLS_TXT = { gastos: "Fecha, Tipo/Categoría, Monto (opcional: Tarjeta)", salud: "Fecha o Mes, Calorías, Días Gym", rutina: "Fecha, Ejercicio, Peso, Repeticiones" };
+function Datos({ db, setDB, cerrar, toast }) {
+  const [tab, setTab] = useState("fuentes");
+  const [estado, setEstado] = useState({});
+  const [tipo, setTipo] = useState("gastos");
+  const [texto, setTexto] = useState(() => aCSV("gastos", db.gastos));
+  const [json, setJson] = useState("");
+  const [nuevo, setNuevo] = useState({ fecha: iso(new Date()), categoria: "Comida", monto: "", tarjeta: "" });
+  const elegir = (t) => { setTipo(t); setTexto(aCSV(t, db[t])); };
+  const setFuente = (k, v) => setDB((d) => ({ ...d, fuentes: { ...d.fuentes, [k]: v.trim() } }));
+  const setMeta = (k, v) => setDB((d) => ({ ...d, metas: { ...d.metas, [k]: v } }));
+  async function sincronizar(k) {
+    const u = db.fuentes[k];
+    if (!/^https:\/\//i.test(u)) { setEstado((e) => ({ ...e, [k]: ["err", "Pega una URL que empiece con https://"] })); return false; }
+    setEstado((e) => ({ ...e, [k]: ["", "Leyendo…"] }));
+    try {
+      const r = await fetch(u, { redirect: "follow" }); if (!r.ok) throw new Error("la hoja respondió " + r.status);
+      const filas = interpretar(k, await r.text());
+      setDB((d) => ({ ...d, [k]: filas, demo: false }));
+      setEstado((e) => ({ ...e, [k]: ["ok", `${filas.length} filas · ${new Date().toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}`] })); return true;
+    } catch (err) { setEstado((e) => ({ ...e, [k]: ["err", /fetch/i.test(err.message) ? "No pude abrir la URL: revisa que esté publicada para cualquiera con el enlace" : "Error: " + err.message] })); return false; }
+  }
+  const todas = async () => { const ks = Object.keys(NOMBRES).filter((k) => db.fuentes[k]); if (!ks.length) return toast("Pega al menos una URL"); const r = await Promise.all(ks.map(sincronizar)); toast(`${r.filter(Boolean).length} de ${ks.length} hojas sincronizadas`); };
+  const aplicar = () => { try { const f = interpretar(tipo, texto); setDB((d) => ({ ...d, [tipo]: f, demo: false })); toast(`${NOMBRES[tipo]}: ${f.length} filas guardadas`); } catch (e) { toast("No pude leer esos datos: " + e.message); } };
+  const agregar = () => { if (!nuevo.monto) return toast("Escribe el monto"); setDB((d) => { const g = [...d.gastos, { ...nuevo, monto: Math.abs(+nuevo.monto) }].sort((a, b) => a.fecha.localeCompare(b.fecha)); if (tipo === "gastos") setTexto(aCSV("gastos", g)); return { ...d, gastos: g, demo: false }; }); setNuevo((n) => ({ ...n, monto: "" })); toast("Gasto agregado"); };
+  const importar = () => { try { const d = JSON.parse(json); if (!d || typeof d !== "object" || Array.isArray(d)) throw new Error("debe ser un objeto JSON"); let n = 0; const p = {};
+      for (const k of ["gastos", "salud", "rutina"]) if (Array.isArray(d[k])) { p[k] = interpretar(k, JSON.stringify(d[k])); n++; }
+      for (const k of ["cuentas", "cajitas", "tarjetas"]) if (Array.isArray(d[k])) { p[k] = d[k].map((x) => ({ id: uid(), ...x })); n++; }
+      if (d.metas && typeof d.metas === "object") { p.metas = { ...db.metas, ...d.metas }; n++; }
+      if (!n) throw new Error("no encontré gastos, salud, rutina, cuentas, cajitas, tarjetas ni metas");
+      setDB((x) => ({ ...x, ...p, demo: false })); toast(`JSON aplicado: ${n} bloque(s)`); setJson(""); } catch (e) { toast("JSON no válido: " + e.message); } };
+  const M = db.metas;
+  return html`<div class="modal" onMouseDown=${(e) => e.target === e.currentTarget && cerrar()}><div class="card">
+    <div class="row"><h2 class="grow">Conexión de datos</h2><button class="btn ghost" onClick=${cerrar}>✕</button></div>
+    <div class="tabs">${[["fuentes", "Google Sheets"], ["manual", "Carga manual"], ["json", "JSON rápido"], ["metas", "Metas y ajustes"]].map(([k, n]) => html`<button key=${k} class=${tab === k ? "on" : ""} onClick=${() => setTab(k)}>${n}</button>`)}</div>
+    ${tab === "fuentes" && html`<div class="stack">
+      <p class="muted" style=${{ fontSize: 13 }}>Pega la URL de un Apps Script que devuelva JSON, o el enlace CSV de «Archivo → Compartir → Publicar en la web». La primera fila debe tener los nombres de las columnas.</p>
+      ${Object.keys(NOMBRES).map((k) => html`<div class="stack" style=${{ gap: 5 }} key=${k}>
+        <label class="f">${NOMBRES[k]} <span style=${{ fontWeight: 400 }}>· columnas: ${COLS_TXT[k]}</span>
+          <div class="row" style=${{ flexWrap: "nowrap" }}><input type="url" placeholder="https://docs.google.com/…output=csv  o  https://script.google.com/…/exec" value=${db.fuentes[k]} onChange=${(e) => setFuente(k, e.target.value)} /><button class="btn sec" onClick=${() => sincronizar(k)}>Probar</button></div></label>
+        ${estado[k] && html`<div class=${"estado " + estado[k][0]}><i></i>${estado[k][1]}</div>`}</div>`)}
+      <div class="row"><button class="btn" onClick=${todas}>Sincronizar todo</button><span class="muted" style=${{ fontSize: 12.5 }}>Las URLs se guardan solo en este navegador.</span></div>
+    </div>`}
+    ${tab === "manual" && html`<div class="stack">
+      <div class="row">${Object.keys(NOMBRES).map((k) => html`<button key=${k} class=${"btn sm " + (tipo === k ? "" : "sec")} onClick=${() => elegir(k)}>${NOMBRES[k]} · ${db[k].length}</button>`)}</div>
+      <p class="muted" style=${{ fontSize: 12.5 }}>Edita las filas aquí mismo o pega celdas copiadas de tu hoja (con encabezados). Columnas: ${COLS_TXT[tipo]}.</p>
+      <textarea rows="10" value=${texto} onChange=${(e) => setTexto(e.target.value)} spellCheck=${false}></textarea>
+      <div class="row"><button class="btn" onClick=${aplicar}>Guardar ${NOMBRES[tipo].toLowerCase()}</button><button class="btn sec" onClick=${() => setTexto(aCSV(tipo, db[tipo]))}>Deshacer cambios</button></div>
+      <h3 style=${{ marginTop: 4 }}>Agregar un gasto rápido</h3>
+      <div class="fgrid" style=${{ gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))" }}>
+        <input type="date" value=${nuevo.fecha} onChange=${(e) => setNuevo({ ...nuevo, fecha: e.target.value })} />
+        <input type="text" placeholder="Categoría" value=${nuevo.categoria} onChange=${(e) => setNuevo({ ...nuevo, categoria: e.target.value })} />
+        <${Num} placeholder="Monto" value=${nuevo.monto} onChange=${(v) => setNuevo({ ...nuevo, monto: v })} />
+        <select value=${nuevo.tarjeta} onChange=${(e) => setNuevo({ ...nuevo, tarjeta: e.target.value })}><option value="">Sin tarjeta</option>${db.tarjetas.map((t) => html`<option key=${t.id}>${t.nombre}</option>`)}</select>
+        <button class="btn" onClick=${agregar}>Agregar</button></div>
+    </div>`}
+    ${tab === "json" && html`<div class="stack">
+      <p class="muted" style=${{ fontSize: 13 }}>Pega un bloque con cualquiera de estas claves; solo se reemplaza lo que incluyas: <b>gastos</b>, <b>salud</b>, <b>rutina</b>, <b>cuentas</b>, <b>cajitas</b>, <b>tarjetas</b>, <b>metas</b>.</p>
+      <textarea rows="9" value=${json} onChange=${(e) => setJson(e.target.value)} spellCheck=${false} placeholder='{"gastos":[{"fecha":"2026-11-16","categoria":"Comida","monto":18.5}],"cuentas":[{"nombre":"Ahorros","saldo":1200}]}'></textarea>
+      <div class="row"><button class="btn" onClick=${importar}>Aplicar JSON</button><button class="btn sec" onClick=${() => setJson(JSON.stringify({ ...db, fuentes: undefined, demo: undefined, tema: undefined }, null, 1))}>Ver mis datos actuales</button>
+        <button class="btn sec" onClick=${() => { if (confirm("¿Volver a los datos de prueba? Se reemplaza todo.")) { setDB({ ...ejemplo(), tema: db.tema }); toast("Datos de prueba cargados"); } }}>Datos de prueba</button></div>
+    </div>`}
+    ${tab === "metas" && html`<div class="fgrid">
+      <label class="f">Ingreso mensual (si tu hoja no trae ingresos)<${Num} value=${M.ingresoMensual} onChange=${(v) => setMeta("ingresoMensual", v)} /></label>
+      <label class="f">Presupuesto mensual de gastos<${Num} value=${M.presupuestoMensual} onChange=${(v) => setMeta("presupuestoMensual", v)} /></label>
+      <label class="f">Meta de calorías diarias<${Num} value=${M.calorias} onChange=${(v) => setMeta("calorias", v)} /></label>
+      <label class="f">Margen aceptado de calorías (%)<${Num} value=${M.tolerancia} onChange=${(v) => setMeta("tolerancia", v)} /></label>
+      <label class="f">Meta de días de gym por semana<${Num} value=${M.gymSemanal} min="1" max="7" onChange=${(v) => setMeta("gymSemanal", clamp(+v || 1, 1, 7))} /></label>
+      <label class="f">Símbolo de moneda<input type="text" maxLength="4" value=${db.moneda} onChange=${(e) => setDB((d) => ({ ...d, moneda: e.target.value }))} /></label>
+      <label class="f full">Categorías que cuentan como comida y snacks (separadas por coma)<input type="text" value=${M.comida} onChange=${(e) => setMeta("comida", e.target.value)} /></label>
+      <p class="muted full" style=${{ fontSize: 12.5 }}>Los ingresos se detectan en tu hoja de gastos cuando la categoría contiene «ingreso», «sueldo», «salario» o «abono».</p>
+    </div>`}
+  </div></div>`;
+}
+ReactDOM.createRoot(document.getElementById("root")).render(html`<${App} />`);
+</script>
+</body>
+</html>

@@ -255,6 +255,12 @@ def careeros():
     return app.send_static_file("careeros.html")
 
 
+@app.route("/finvital")
+def finvital():
+    """FinVital OS: tablero personal que guarda sus datos en el navegador (no usa el servidor)."""
+    return app.send_static_file("finvital.html")
+
+
 @app.route("/manifest.webmanifest")
 def manifest():
     return app.send_static_file("manifest.webmanifest")
