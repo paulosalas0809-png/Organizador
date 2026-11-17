@@ -255,6 +255,19 @@ def careeros():
     return app.send_static_file("careeros.html")
 
 
+@app.get("/api/finvital/datos")
+@requiere_login
+def api_finvital_datos():
+    """Datos reales del dueño (gastos, calorías, gym y cargas). Solo con sesión iniciada."""
+    archivo = os.path.join(os.path.dirname(__file__), "finvital_datos.json")
+    if not os.path.exists(archivo):
+        return jsonify(error="Todavía no hay datos guardados."), 404
+    with open(archivo, encoding="utf-8") as f:
+        respuesta = app.response_class(f.read(), mimetype="application/json")
+    respuesta.headers["Cache-Control"] = "no-store"
+    return respuesta
+
+
 @app.route("/finvital")
 def finvital():
     """FinVital OS: tablero personal que guarda sus datos en el navegador (no usa el servidor)."""

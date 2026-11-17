@@ -290,13 +290,13 @@ function calcular(db) {
   const esComida = (g) => comidas.some((c) => norm(g.categoria).includes(c));
   const saludSem = (s) => {
     const fila = db.salud.find((x) => !x.mes && lunes(x.fecha) === s);
-    if (fila) return { calorias: fila.calorias, gym: fila.diasGym };
+    if (fila) return { calorias: fila.calorias || null, gym: fila.diasGym };
     const m = db.salud.find((x) => x.mes && mesDe(x.fecha) === mesDe(s));
     return m ? { calorias: m.calorias, gym: Math.round((m.diasGym / 4.345) * 10) / 10 } : null;
   };
   const semanal = semanas.map((s) => {
     const fin = iso(masDias(fecha(s), 6)), sal = saludSem(s);
-    return { semana: s, etiqueta: corto(s), comida: Math.round(suma(gastos.filter((g) => g.fecha >= s && g.fecha <= fin && esComida(g)))), cumplimiento: sal && M.calorias ? Math.round((sal.calorias / M.calorias) * 100) : null, calorias: sal ? sal.calorias : null, gym: sal ? sal.gym : null };
+    return { semana: s, etiqueta: corto(s), comida: Math.round(suma(gastos.filter((g) => g.fecha >= s && g.fecha <= fin && esComida(g)))), cumplimiento: sal && sal.calorias && M.calorias ? Math.round((sal.calorias / M.calorias) * 100) : null, calorias: sal ? sal.calorias : null, gym: sal ? sal.gym : null };
   });
   const semAct = semanal[7];
 
@@ -310,13 +310,32 @@ function calcular(db) {
   const dPresu = !M.presupuestoMensual ? null : act.gasto <= prorrata ? 1 : clamp(1 - (act.gasto - prorrata) / prorrata);
   const ult4 = semanal.slice(-4).filter((x) => x.gym != null);
   const dGym = ult4.length && M.gymSemanal ? ult4.reduce((a, x) => a + clamp(x.gym / M.gymSemanal), 0) / ult4.length : null;
-  const dCal = ult4.length && M.calorias ? ult4.reduce((a, x) => { const dev = Math.abs(x.calorias - M.calorias) / M.calorias, tol = (M.tolerancia || 0) / 100; return a + (dev <= tol ? 1 : clamp(1 - (dev - tol) / .25)); }, 0) / ult4.length : null;
+  const conCal = ult4.filter((x) => x.calorias != null);
+  const dCal = conCal.length && M.calorias ? conCal.reduce((a, x) => { const dev = Math.abs(x.calorias - M.calorias) / M.calorias, tol = (M.tolerancia || 0) / 100; return a + (dev <= tol ? 1 : clamp(1 - (dev - tol) / .25)); }, 0) / conCal.length : null;
   const partes = [dPresu, dGym, dCal].filter((x) => x != null);
   const disciplina = partes.length ? Math.round((partes.reduce((a, b) => a + b, 0) / partes.length) * 100) : null;
 
   return { act, porMes, gastoProm, ahorroProm, liquido, cajitas, deuda, patrimonio, proy, tarjetas, mejor, semanal, semAct, ejercicios, progreso,
     tasaAhorro: act.ingreso ? (act.ingreso - act.gasto) / act.ingreso : null, runway: gastoProm ? (liquido + cajitas) / gastoProm : null,
     disciplina, dPresu, dGym, dCal, prorrata };
+}
+
+// ------------------------------------------------------------ datos reales guardados en el servidor
+// Devuelve {ok, db} o {ok:false, motivo}. Al pasar de datos de prueba a reales, los saldos y tarjetas
+// de ejemplo se vacían: esos datos no vienen en el paquete y no deben parecer tuyos.
+async function traerReales(db) {
+  let r;
+  try { r = await fetch("/api/finvital/datos", { credentials: "same-origin" }); } catch (e) { return { ok: false, motivo: "red" }; }
+  if (r.status === 401) return { ok: false, motivo: "sesion" };
+  if (!r.ok) return { ok: false, motivo: "vacio" };
+  const p = await r.json(), eraDemo = db.demo;
+  const nuevo = { ...db, demo: false, real: p.generado, origen: p.origen || {},
+    gastos: interpretar("gastos", JSON.stringify(p.gastos)), salud: p.salud, rutina: p.rutina, metas: { ...db.metas, ...(p.metas || {}) } };
+  if (eraDemo) Object.assign(nuevo, {
+    cuentas: [{ id: uid(), nombre: "Cuenta principal", saldo: 0 }],
+    cajitas: [["Fondo de emergencia"], ["Inversión a futuro"], ["Libros"]].map(([n]) => ({ id: uid(), nombre: n, saldo: 0, meta: 0 })),
+    tarjetas: [], metas: { ...nuevo.metas, ingresoMensual: 0, presupuestoMensual: 0 } });
+  return { ok: true, db: nuevo, filas: p.gastos.length };
 }
 
 // ------------------------------------------------------------ piezas
@@ -334,7 +353,10 @@ function App() {
   const t = useRef();
   const toast = (m) => { setAviso(m); clearTimeout(t.current); t.current = setTimeout(() => setAviso(""), 3200); };
   useEffect(() => { try { localStorage.setItem(CLAVE, JSON.stringify(db)); } catch (e) {} document.documentElement.dataset.theme = db.tema; }, [db]);
+  const [sesion, setSesion] = useState(true);
+  useEffect(() => { if (db.demo) traerReales(db).then((r) => { if (r.ok) { setDB(r.db); toast("Datos reales cargados: " + r.filas + " gastos"); } else if (r.motivo === "sesion") setSesion(false); }); }, []);
   const k = useMemo(() => calcular(db), [db]);
+  const faltan = !db.demo && db.real && !k.liquido && !k.cajitas;
   const S = (n, dec = 0) => `${n < 0 ? "−" : ""}${db.moneda} ${Math.abs(n).toLocaleString("es-PE", { minimumFractionDigits: dec, maximumFractionDigits: dec })}`;
   const upd = (f) => setDB((d) => ({ ...f(d), demo: false }));
   const lista = (key) => ({
@@ -357,7 +379,8 @@ function App() {
     <button class="btn" onClick=${() => setModal(true)}>Conexión de datos</button>
   </div></header>
   <div class="wrap">
-    ${db.demo && html`<div class="banner"><span>Estás viendo <b>datos de prueba</b>. Conecta tus hojas o edita los saldos para usar los tuyos.</span><button class="btn sm sec" onClick=${() => setModal(true)}>Conectar mis datos</button></div>`}
+    ${db.demo && html`<div class="banner"><span>Estás viendo <b>datos de prueba</b>. ${sesion ? "Conecta tus hojas o edita los saldos para usar los tuyos." : "Para cargar tus datos reales, inicia sesión en Orga y vuelve a esta página."}</span>${sesion ? html`<button class="btn sm sec" onClick=${() => setModal(true)}>Conectar mis datos</button>` : html`<a class="btn sm sec" href="/entrar" style=${{ textDecoration: "none" }}>Iniciar sesión</a>`}</div>`}
+    ${faltan && html`<div class="banner"><span>Tus gastos, calorías y gym ya son <b>reales</b> (al ${corto(db.real)}). Faltan tus <b>saldos</b>, tu <b>ingreso mensual</b> y tus <b>tarjetas</b>: sin ellos el patrimonio y la tasa de ahorro salen en cero.</span><button class="btn sm sec" onClick=${() => setModal(true)}>Completar metas</button></div>`}
 
     <section id="patrimonio">
       <div class="sec-h"><div><p class="eyebrow">Patrimonio y flujo</p><h1>Tu posición hoy</h1></div><span class="muted" style=${{ fontSize: 12.5 }}>${new Date().toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" })}</span></div>
@@ -518,6 +541,10 @@ function Datos({ db, setDB, cerrar, toast }) {
     <div class="row"><h2 class="grow">Conexión de datos</h2><button class="btn ghost" onClick=${cerrar}>✕</button></div>
     <div class="tabs">${[["fuentes", "Google Sheets"], ["manual", "Carga manual"], ["json", "JSON rápido"], ["metas", "Metas y ajustes"]].map(([k, n]) => html`<button key=${k} class=${tab === k ? "on" : ""} onClick=${() => setTab(k)}>${n}</button>`)}</div>
     ${tab === "fuentes" && html`<div class="stack">
+      <div class="card stack" style=${{ background: "var(--surface-2)", gap: 8 }}>
+        <div class="row"><div class="grow"><h3>Mis datos reales</h3><p class="muted" style=${{ fontSize: 12.5 }}>Hoja «FINANZAS PAULO», Pulso y Gym Tracker${db.real ? ` · leídos el ${corto(db.real)}` : ""}. Requiere tu sesión de Orga.</p></div>
+          <button class="btn" onClick=${async () => { const r = await traerReales(db); if (r.ok) { setDB(r.db); toast("Datos reales cargados: " + r.filas + " gastos"); } else toast(r.motivo === "sesion" ? "Inicia sesión en Orga primero y vuelve a intentarlo" : "No pude traer tus datos del servidor"); }}>Traer mis datos</button></div>
+      </div>
       <p class="muted" style=${{ fontSize: 13 }}>Pega la URL de un Apps Script que devuelva JSON, o el enlace CSV de «Archivo → Compartir → Publicar en la web». La primera fila debe tener los nombres de las columnas.</p>
       ${Object.keys(NOMBRES).map((k) => html`<div class="stack" style=${{ gap: 5 }} key=${k}>
         <label class="f">${NOMBRES[k]} <span style=${{ fontWeight: 400 }}>· columnas: ${COLS_TXT[k]}</span>
