@@ -43,6 +43,17 @@ registros lleguen al tablero y el bloqueo de un acceso sea inmediato, la informa
 
 Los datos se guardan en `CARPETA_DATOS/colegio.json` (en Railway, el volumen `/data`).
 
+## Lectura del libro de Excel en OneDrive
+
+`organizador/colegio_excel.py` descarga el libro desde su enlace de «Compartir» y carga en el tablero las
+hojas cuyo nombre contiene **GASTOS** o **INGRESOS** (columnas FECHA y MONTO/IMPORTE). Se vuelve a leer
+cada 15 minutos y con el botón «Actualizar ahora». El archivo nunca se modifica.
+
+- Una fila sin fecha toma la **fecha inmediata anterior** de su hoja.
+- Las filas con importe 0 o vacío se omiten.
+- Los gastos se agrupan por palabras clave del concepto (`REGLAS_GASTO`).
+- El enlace se guarda desde el panel o en la variable `COLEGIO_EXCEL_LINK`; no va en el repositorio.
+
 ## Desarrollo
 
 ```bash

@@ -10,6 +10,7 @@ from __future__ import annotations
 import hmac
 import ipaddress
 import json
+import os
 import random
 import socket
 import threading
@@ -24,6 +25,7 @@ from zoneinfo import ZoneInfo
 
 from flask import Blueprint, jsonify, request, session
 
+from . import colegio_excel
 from .config import cargar_config
 
 bp = Blueprint("colegio", __name__, url_prefix="/api/colegio")
@@ -245,6 +247,48 @@ def _en_segundo_plano(tx_id: str, accion: str) -> None:
     threading.Thread(target=_sincronizar, args=(tx_id, accion), daemon=True).start()
 
 
+# ---------------------------------------------------------------- lectura del Excel de OneDrive
+
+_leyendo = threading.Lock()
+REFRESCO = 15 * 60                       # segundos entre lecturas automáticas
+
+
+def _enlace_excel(datos: dict) -> str:
+    c = datos["config"]
+    return c["excelLink"] if "excelLink" in c else os.environ.get("COLEGIO_EXCEL_LINK", "").strip()
+
+
+def _importar_excel(enlace: str | None = None) -> dict:
+    """Lee el libro y reemplaza los movimientos que vinieron de él. Devuelve el resumen."""
+    with _leyendo:
+        enlace = enlace if enlace is not None else _enlace_excel(_cargar())
+        ahora = datetime.now(ZONA)
+        try:
+            filas, info = colegio_excel.leer(colegio_excel.descargar(enlace))
+            info.update(ok=True, cuando=ahora.strftime("%Y-%m-%d %H:%M"))
+        except colegio_excel.ErrorExcel as e:
+            filas, info = None, {"ok": False, "error": str(e), "cuando": ahora.strftime("%Y-%m-%d %H:%M")}
+        with _candado:
+            datos = _cargar()
+            if filas is not None:
+                # Con datos reales del colegio ya no deben sumarse los movimientos de ejemplo
+                datos["tx"] = [t for t in datos["tx"] if t.get("origen") != "excel" and not t.get("demo")] + filas
+                datos["config"]["excelLink"] = enlace
+                datos["config"]["excelInfo"] = info
+            else:
+                anterior = datos["config"].get("excelInfo") or {}
+                datos["config"]["excelInfo"] = {**anterior, "ok": False, "error": info["error"], "intento": info["cuando"]}
+            datos["config"]["excelIntento"] = time.time()
+            _guardar(datos)
+        return info
+
+
+def _refrescar_si_toca(datos: dict) -> None:
+    """Vuelve a leer el Excel en segundo plano si la última lectura ya es vieja."""
+    if _enlace_excel(datos) and time.time() - datos["config"].get("excelIntento", 0) > REFRESCO and not _leyendo.locked():
+        threading.Thread(target=_importar_excel, daemon=True).start()
+
+
 # ---------------------------------------------------------------- validación de movimientos
 
 
@@ -274,7 +318,11 @@ def _validar(d: dict, base: dict | None = None) -> tuple[dict | None, str | None
 
 @bp.get("/ping")
 def ping():
-    return jsonify(ok=True, admin=bool(session.get("cf_admin")))
+    datos = _cargar()
+    _refrescar_si_toca(datos)
+    info = datos["config"].get("excelInfo")
+    lectura = "sin_enlace" if not _enlace_excel(datos) else "pendiente" if not info else "ok" if info.get("ok") else "error"
+    return jsonify(ok=True, admin=bool(session.get("cf_admin")), excel=lectura)
 
 
 @bp.get("/caja/perfiles")
@@ -382,15 +430,50 @@ def admin_salir():
 
 def _estado(datos: dict):
     c = datos["config"]
-    return jsonify(config={"webhook": c.get("webhook", ""), "metaMensual": c.get("metaMensual", 0), "colegio": c.get("colegio", "")},
-                   pinPorDefecto=c["adminPin"] == "0000", usuarios=datos["usuarios"], tx=datos["tx"], demo=bool(datos.get("demo")),
+    demo_tx = any(t.get("demo") for t in datos["tx"])
+    demo_usuarios = any(u.get("demo") for u in datos["usuarios"])
+    return jsonify(config={"webhook": c.get("webhook", ""), "metaMensual": c.get("metaMensual", 0), "colegio": c.get("colegio", ""),
+                           "excelLink": _enlace_excel(datos), "excelInfo": c.get("excelInfo")},
+                   pinPorDefecto=c["adminPin"] == "0000", usuarios=datos["usuarios"], tx=datos["tx"],
+                   demo=demo_tx or demo_usuarios, demoTx=demo_tx,
                    categorias=CATEGORIAS, metodos=METODOS, hoy=datetime.now(ZONA).strftime("%Y-%m-%d"))
 
 
 @bp.get("/admin/datos")
 @admin
 def admin_datos():
+    datos = _cargar()
+    _refrescar_si_toca(datos)
+    return _estado(datos)
+
+
+@bp.post("/admin/excel/leer")
+@admin
+def admin_excel_leer():
+    """Vincula (si llega un enlace nuevo) y lee ahora mismo el libro de OneDrive."""
+    d = request.json or {}
+    enlace = str(d["enlace"]).strip() if "enlace" in d else _enlace_excel(_cargar())
+    if not enlace:
+        return jsonify(error="Pega primero el enlace de tu Excel de OneDrive."), 400
+    problema = colegio_excel.revisar_enlace(enlace)
+    if problema:
+        return jsonify(error=problema), 400
+    info = _importar_excel(enlace)
+    if not info.get("ok"):
+        return jsonify(error=info["error"]), 502
     return _estado(_cargar())
+
+
+@bp.post("/admin/excel/desvincular")
+@admin
+def admin_excel_desvincular():
+    with _candado:
+        datos = _cargar()
+        datos["tx"] = [t for t in datos["tx"] if t.get("origen") != "excel"]
+        datos["config"]["excelLink"] = ""
+        datos["config"].pop("excelInfo", None)
+        _guardar(datos)
+    return _estado(datos)
 
 
 @bp.post("/admin/config")
@@ -485,6 +568,8 @@ def admin_tx_editar(tid):
         tx = next((t for t in datos["tx"] if t["id"] == tid), None)
         if tx is None:
             return jsonify(error="Ese registro ya no existe."), 404
+        if tx.get("origen") == "excel":
+            return jsonify(error="Este registro viene de tu Excel: corrígelo allí y pulsa «Actualizar»."), 400
         d = request.json or {}
         campos, error = _validar(d, base=tx)
         if error:
@@ -512,6 +597,8 @@ def admin_tx_borrar(tid):
     with _candado:
         datos = _cargar()
         tx = next((t for t in datos["tx"] if t["id"] == tid), None)
+        if tx and tx.get("origen") == "excel":
+            return jsonify(error="Este registro viene de tu Excel: bórralo allí y pulsa «Actualizar»."), 400
         datos["tx"] = [t for t in datos["tx"] if t["id"] != tid]
         _guardar(datos)
     if tx and tx.get("sync") == "ok" and datos["config"].get("webhook"):
@@ -526,7 +613,6 @@ def admin_limpiar():
         datos = _cargar()
         datos["tx"] = [t for t in datos["tx"] if not t.get("demo")]
         datos["usuarios"] = [u for u in datos["usuarios"] if not u.get("demo")]
-        datos["demo"] = False
         _guardar(datos)
     return _estado(datos)
 

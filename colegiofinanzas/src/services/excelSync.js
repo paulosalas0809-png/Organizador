@@ -11,7 +11,7 @@ const PENDIENTES = ["pendiente", "error", "sin_enlace"];
 
 /** Resumen de la cola de sincronización a partir de los movimientos. */
 export function resumenCola(tx = []) {
-  const reales = tx.filter((t) => t.sync !== "ejemplo");
+  const reales = tx.filter((t) => t.sync !== "ejemplo" && t.sync !== "excel");
   return {
     total: reales.length,
     ok: reales.filter((t) => t.sync === "ok").length,
@@ -31,6 +31,9 @@ export async function probarConexion(webhook) {
     return { ok: false, mensaje: e.message, enviado: e.datos?.enviado };
   }
 }
+
+/** Lee ahora el libro de OneDrive; con `enlace` además lo vincula. Devuelve el estado completo. */
+export const leerExcel = (enlace) => api("/admin/excel/leer", { metodo: "POST", cuerpo: enlace === undefined ? {} : { enlace } });
 
 /** Reenvía todo lo que no llegó (registros hechos sin enlace, o cuyo envío falló). */
 export const sincronizarPendientes = () => api("/admin/sync/pendientes", { metodo: "POST" });

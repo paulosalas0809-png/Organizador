@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Download, Pencil, Search, Trash2, X } from "lucide-react";
+import { Download, FileSpreadsheet, Pencil, Search, Trash2, X } from "lucide-react";
 import { useFinance } from "../context/FinanceContext.jsx";
 import { CATEGORIAS, MESES, METODOS, SYNC, fechaCorta, soles, suma } from "../lib/format.js";
 import { COLUMNAS } from "../services/excelSync.js";
@@ -19,6 +19,8 @@ export default function AuditTable() {
   const poner = (k, v) => { setF({ ...f, [k]: v }); setPagina(1); };
 
   const usuarios = useMemo(() => [...new Set(datos.tx.map((t) => t.registradoPor))].sort(), [datos.tx]);
+  const categorias = useMemo(() => [...new Set([...CATEGORIAS.ingreso, ...CATEGORIAS.gasto, ...datos.tx.map((t) => t.categoria)])], [datos.tx]);
+  const medios = useMemo(() => [...new Set([...METODOS, ...datos.tx.map((t) => t.metodoPago)])], [datos.tx]);
   const semanas = useMemo(() => [...new Set(datos.tx.map((t) => t.semana))].sort((a, b) => b - a), [datos.tx]);
   const filas = useMemo(() => {
     const q = f.q.trim().toLowerCase();
@@ -65,8 +67,8 @@ export default function AuditTable() {
         <Sel k="semana" titulo="Semana" ops={semanas.map((s) => [String(s), `Semana ${s}`])} />
         <Sel k="mes" titulo="Mes" ops={MESES} />
         <Sel k="tipo" titulo="Tipo" ops={[["ingreso", "Ingreso"], ["gasto", "Gasto"]]} />
-        <Sel k="categoria" titulo="Categoría" ops={[...CATEGORIAS.ingreso, ...CATEGORIAS.gasto]} />
-        <Sel k="metodo" titulo="Medio de pago" ops={METODOS} />
+        <Sel k="categoria" titulo="Categoría" ops={categorias} />
+        <Sel k="metodo" titulo="Medio de pago" ops={medios} />
         <Sel k="usuario" titulo="Registrado por" ops={usuarios} />
         <Sel k="sync" titulo="Estado en Excel" ops={Object.entries(SYNC).map(([k, v]) => [k, v.texto])} />
         {Object.values(f).some(Boolean) && <button onClick={() => { setF(FILTROS0); setPagina(1); }} className="btn-sec !py-2 text-xs"><X size={14} />Limpiar</button>}
@@ -80,7 +82,7 @@ export default function AuditTable() {
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {visibles.map((t) => (
               <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                <td className="num whitespace-nowrap px-3 py-2.5">{fechaCorta(t.fecha)}<span className="block text-xs text-slate-500">{t.hora.slice(0, 5)}</span></td>
+                <td className="num whitespace-nowrap px-3 py-2.5">{fechaCorta(t.fecha)}<span className="block text-xs text-slate-500">{t.origen === "excel" ? `fila ${t.fila}` : t.hora.slice(0, 5)}</span></td>
                 <td className="num px-3 py-2.5 text-slate-500">{t.semana}</td>
                 <td className="px-3 py-2.5"><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${t.tipo === "ingreso" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" : "bg-coral-100 text-coral-700 dark:bg-coral-500/15 dark:text-coral-400"}`}>{t.tipo === "ingreso" ? "Ingreso" : "Gasto"}</span></td>
                 <td className="max-w-[280px] px-3 py-2.5"><b className="block truncate font-medium">{t.concepto || "—"}</b><span className="block truncate text-xs text-slate-500">{t.categoria}{t.nOperacion ? ` · ${t.nOperacion}` : ""}{t.editado ? " · corregido" : ""}</span></td>
@@ -89,8 +91,9 @@ export default function AuditTable() {
                 <td className={`num whitespace-nowrap px-3 py-2.5 text-right font-semibold ${t.tipo === "ingreso" ? "text-emerald-700 dark:text-emerald-400" : "text-coral-600 dark:text-coral-400"}`}>{t.tipo === "ingreso" ? "+" : "−"}{soles(t.monto)}</td>
                 <td className="px-3 py-2.5"><span title={t.syncMsg || ""} className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${SYNC[t.sync]?.clase}`}>{SYNC[t.sync]?.texto || t.sync}</span></td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                  {t.origen === "excel" ? <span title={`Viene de la hoja «${t.hoja}», fila ${t.fila}. Se corrige en tu Excel.`} className="inline-flex p-1.5 text-slate-400"><FileSpreadsheet size={15} /></span> : <>
                   <button onClick={() => setEdit({ ...t })} title="Editar" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"><Pencil size={15} /></button>
-                  <button onClick={() => window.confirm(`¿Eliminar este registro de ${soles(t.monto)}? No se puede deshacer.`) && borrarTx(t.id).catch(() => {})} title="Eliminar" className="rounded-lg p-1.5 text-coral-600 hover:bg-coral-50 dark:hover:bg-coral-500/10"><Trash2 size={15} /></button>
+                  <button onClick={() => window.confirm(`¿Eliminar este registro de ${soles(t.monto)}? No se puede deshacer.`) && borrarTx(t.id).catch(() => {})} title="Eliminar" className="rounded-lg p-1.5 text-coral-600 hover:bg-coral-50 dark:hover:bg-coral-500/10"><Trash2 size={15} /></button></>}
                 </td>
               </tr>
             ))}

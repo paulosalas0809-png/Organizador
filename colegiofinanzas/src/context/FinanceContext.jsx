@@ -58,6 +58,8 @@ export function FinanceProvider({ children }) {
     borrarUsuario: (id) => operar(`/admin/usuarios/${id}`, "DELETE", undefined, "Acceso eliminado"),
     editarTx: (id, t) => operar(`/admin/tx/${id}`, "PUT", t, "Registro corregido"),
     borrarTx: (id) => operar(`/admin/tx/${id}`, "DELETE", undefined, "Registro eliminado"),
+    leerExcel: (enlace) => operar("/admin/excel/leer", "POST", enlace === undefined ? {} : { enlace }, "Excel leído: tablero actualizado"),
+    desvincularExcel: () => operar("/admin/excel/desvincular", "POST", {}, "Excel desvinculado"),
     limpiarEjemplo: () => operar("/admin/limpiar-ejemplo", "POST", {}, "Datos de ejemplo eliminados"),
     sincronizar: async () => {
       const r = await operar("/admin/sync/pendientes", "POST", {});
@@ -70,7 +72,7 @@ export function FinanceProvider({ children }) {
   // Refresco periódico: los registros que hace el personal aparecen solos en el tablero
   useEffect(() => {
     if (!admin.autenticado) return;
-    const t = setInterval(() => { if (!document.hidden) cargarAdmin(); }, 20000);
+    const t = setInterval(() => { if (!document.hidden) cargarAdmin(); }, 45000);
     return () => clearInterval(t);
   }, [admin.autenticado, cargarAdmin]);
 

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { CheckCircle2, Copy, Link2, PlugZap, RefreshCw, XCircle } from "lucide-react";
+import { CheckCircle2, Copy, FileSpreadsheet, Link2, PlugZap, RefreshCw, Unlink, XCircle } from "lucide-react";
 import { useFinance } from "../context/FinanceContext.jsx";
 import { COLUMNAS, probarConexion } from "../services/excelSync.js";
+import { soles } from "../lib/format.js";
 
 // Vinculación con el archivo de Excel Online (Power Automate) o Google Sheets (Apps Script).
 const APPS_SCRIPT = `// ColegioFinanzas OS → Google Sheets
@@ -42,7 +43,15 @@ const ESQUEMA = JSON.stringify({
 }, null, 2);
 
 export default function ExcelConnector() {
-  const { datos, cola, guardarConfig, sincronizar, avisar } = useFinance();
+  const { datos, cola, guardarConfig, sincronizar, avisar, leerExcel, desvincularExcel } = useFinance();
+  const [libro, setLibro] = useState(datos.config.excelLink || "");
+  const info = datos.config.excelInfo;
+  const vinculado = !!datos.config.excelLink;
+  const leer = async () => { setOcupado("leer"); try { await leerExcel(libro.trim() === datos.config.excelLink ? undefined : libro.trim()); } catch (e) { /* aviso mostrado */ } setOcupado(""); };
+  const desvincular = async () => {
+    if (!window.confirm("¿Desvincular el Excel? Sus movimientos saldrán del tablero (tu archivo no se toca).")) return;
+    setOcupado("desvincular"); try { await desvincularExcel(); setLibro(""); } catch (e) { /* aviso mostrado */ } setOcupado("");
+  };
   const [url, setUrl] = useState(datos.config.webhook);
   const [prueba, setPrueba] = useState(null);
   const [ocupado, setOcupado] = useState("");
@@ -58,6 +67,30 @@ export default function ExcelConnector() {
     <div className="space-y-4">
       <div><h1 className="text-2xl font-bold tracking-tight">Conexión directa con Excel</h1>
         <p className="text-sm text-slate-500">Cada ingreso o gasto registrado se envía solo a tu archivo. El envío sale desde el servidor: el enlace nunca llega al celular del personal.</p></div>
+
+      <section className="card space-y-3">
+        <h2 className="flex items-center gap-2 text-sm font-bold"><FileSpreadsheet size={16} />Tu libro de Excel en OneDrive (lectura automática)</h2>
+        <p className="text-xs text-slate-500">El tablero lee las hojas de <b>GASTOS</b> e <b>INGRESOS</b> de tu archivo cada 15 minutos. Si una fila no tiene fecha, se usa la fecha inmediata anterior. Tu archivo no se modifica.</p>
+        <label><span className="label">Enlace de «Compartir» del archivo (cualquier persona con el vínculo puede ver)</span>
+          <input className="field" type="url" value={libro} onChange={(e) => setLibro(e.target.value)} placeholder="https://1drv.ms/x/…" /></label>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={leer} disabled={!libro.trim() || ocupado} className="btn"><RefreshCw size={16} className={ocupado === "leer" ? "animate-spin" : ""} />{ocupado === "leer" ? "Leyendo tu Excel…" : vinculado && libro.trim() === datos.config.excelLink ? "Actualizar ahora" : "Vincular y leer"}</button>
+          {vinculado && <button onClick={desvincular} disabled={ocupado} className="btn-sec"><Unlink size={16} />Desvincular</button>}
+        </div>
+        {info && !info.ok && <p className="flex items-start gap-2 rounded-xl bg-coral-50 px-3 py-2.5 text-sm font-semibold text-coral-700 dark:bg-coral-500/10 dark:text-coral-400"><XCircle size={16} className="mt-0.5 flex-none" />La última lectura falló ({info.intento}): {info.error}{info.hojas ? " Se conservan los datos de la lectura anterior." : ""}</p>}
+        {info?.hojas && (
+          <div className="rounded-xl bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200">
+            <p className="flex items-center gap-2 font-semibold"><CheckCircle2 size={16} />Última lectura correcta: {info.cuando}</p>
+            <ul className="mt-1.5 list-disc space-y-0.5 pl-6 text-xs">
+              {info.hojas.map((h) => <li key={h.nombre}>Hoja «{h.nombre}»: <b className="num">{h.filas}</b> {h.tipo === "gasto" ? "gastos" : "ingresos"} · <b className="num">{soles(h.tipo === "gasto" ? info.totalGastos : info.totalIngresos)}</b></li>)}
+              <li><b className="num">{info.fechasCompletadas}</b> filas sin fecha tomaron la fecha anterior · <b className="num">{info.omitidas}</b> filas omitidas por tener importe 0</li>
+            </ul>
+          </div>
+        )}
+      </section>
+
+      <div><h2 className="text-lg font-bold tracking-tight">Envío de los registros de la Mini-App</h2>
+        <p className="text-sm text-slate-500">Para que lo que registre el personal en la Mini-App se escriba solo en una hoja.</p></div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <section className="card space-y-3 lg:col-span-3">

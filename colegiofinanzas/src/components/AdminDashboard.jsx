@@ -36,8 +36,8 @@ export default function AdminDashboard() {
         </Aviso>
       )}
       {datos.demo && (
-        <Aviso icono={Sparkles} tono="amber" texto="Estás viendo datos de ejemplo de un colegio (incluye 3 usuarios con PIN 1111, 2222 y 3333). Bórralos antes de usar la app de verdad.">
-          <button onClick={() => window.confirm("¿Borrar todos los movimientos y usuarios de ejemplo? No se puede deshacer.") && limpiarEjemplo().catch(() => {})} className="btn-sec !py-1.5 text-xs">Limpiar datos de ejemplo</button>
+        <Aviso icono={Sparkles} tono="amber" texto={datos.demoTx ? "Estás viendo datos de ejemplo de un colegio (incluye 3 usuarios con PIN 1111, 2222 y 3333). Bórralos antes de usar la app de verdad." : "Siguen activos los usuarios de ejemplo de la Mini-App (PIN 1111, 2222 y 3333). Bórralos y crea los accesos reales de tu personal."}>
+          <button onClick={() => window.confirm("¿Borrar todos los movimientos y usuarios de ejemplo? No se puede deshacer.") && limpiarEjemplo().catch(() => {})} className="btn-sec !py-1.5 text-xs">{datos.demoTx ? "Limpiar datos de ejemplo" : "Borrar usuarios de ejemplo"}</button>
         </Aviso>
       )}
 

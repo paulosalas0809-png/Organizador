@@ -15,6 +15,7 @@ export const SYNC = {
   pendiente: { texto: "Enviando", clase: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" },
   error: { texto: "Falló el envío", clase: "bg-coral-100 text-coral-700 dark:bg-coral-500/15 dark:text-coral-400" },
   sin_enlace: { texto: "Sin enlace", clase: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" },
+  excel: { texto: "Leído de Excel", clase: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300" },
   ejemplo: { texto: "Ejemplo", clase: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400" },
 };
 
