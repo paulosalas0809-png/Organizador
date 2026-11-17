@@ -361,6 +361,8 @@ def api_hoy():
         ],
         completadas=completadas,
         plan=plan,
+        plan_manana=json.loads(archivo_plan(dia + timedelta(days=1)).read_text()) if archivo_plan(dia + timedelta(days=1)).exists() else None,
+        horario={"inicio": cfg.hora_inicio.strftime("%H:%M"), "fin": cfg.hora_fin.strftime("%H:%M")},
         metas=metas.listar(),
         semana=_semana(todos, dia, tareas),
     )
@@ -387,30 +389,70 @@ def _semana(todos: list, dia: date, tareas: list[Tarea]) -> list[dict]:
     return semana
 
 
+def _hora_valida(texto, defecto):
+    try:
+        return datetime.strptime(str(texto), "%H:%M").time()
+    except ValueError:
+        return defecto
+
+
 @app.post("/api/plan")
 @requiere_login
 def api_plan():
-    nota = (request.json or {}).get("nota", "")[:500]
+    """Genera el horario de hoy o de mañana dentro del tiempo disponible que indique el usuario."""
+    import dataclasses
+
+    datos = request.json or {}
+    nota = str(datos.get("nota", ""))[:500]
     momento = ahora()
-    dia = momento.date()
+    manana = datos.get("dia") == "manana"
+    dia = momento.date() + timedelta(days=1 if manana else 0)
+    desde = _hora_valida(datos.get("desde"), cfg.hora_inicio)
+    hasta = _hora_valida(datos.get("hasta"), cfg.hora_fin)
+    if hasta <= desde:
+        return jsonify(error="La hora de fin debe ser posterior a la de inicio."), 400
+    ventana = dataclasses.replace(cfg, hora_inicio=desde, hora_fin=hasta)
+    deberes = [str(d).strip()[:200] for d in (datos.get("deberes") or []) if str(d).strip()][:25]
+
     g = google()
     eventos, tareas = datos_del_dia(g, dia)
-    huecos = huecos_libres(eventos, dia, cfg, desde=momento)
+    if deberes and datos.get("guardar"):
+        existentes = {t.titulo.lower() for t in tareas}
+        for d in deberes:
+            if d.lower() not in existentes:
+                g.crear_tarea(d, vence=dia)
+        tareas = ordenar(g.tareas_pendientes())
+    else:
+        # Deberes escritos a mano: cuentan como tareas de ese día, primero en la lista
+        tareas = [Tarea(id="", lista_id="", lista="Deberes del día", titulo=d, notas="", vence=dia) for d in deberes] + tareas
+
+    huecos = huecos_libres(eventos, dia, ventana, desde=None if manana else momento)
+    if not huecos:
+        return jsonify(error="No queda tiempo libre en ese horario. Amplía la hora de fin o elige mañana."), 400
+    libre = int(sum((b - a).total_seconds() for a, b in huecos) // 60)
+    pedido = (
+        f"Solo dispongo de {desde:%H:%M} a {hasta:%H:%M} ({libre} minutos libres en total). No pongas nada fuera de ese "
+        "horario. Si no cabe todo, deja lo menos urgente para otro día."
+        + (" Mis deberes del día son obligatorios: van primero." if deberes else "")
+        + (f" Además: {nota}" if nota else "")
+    )
     if gemini_disponible():
-        contexto = construir_contexto(dia, momento, eventos, tareas, huecos, cfg, nota)
+        contexto = construir_contexto(dia, momento, eventos, tareas, huecos, ventana, pedido)
         plan = plan_con_gemini(contexto, metas.listar()).model_dump()
     elif claude_disponible():
-        contexto = construir_contexto(dia, momento, eventos, tareas, huecos, cfg, nota)
+        contexto = construir_contexto(dia, momento, eventos, tareas, huecos, ventana, pedido)
         plan = generar_plan(contexto).model_dump()
     else:
         plan = plan_sin_ia(dia, eventos, tareas, huecos).model_dump()
     for b in plan["bloques"]:
         n = b.get("tarea_numero")
-        if n and 1 <= n <= len(tareas):
+        if n and 1 <= n <= len(tareas) and tareas[n - 1].id:
             b["tarea_id"], b["lista_id"] = tareas[n - 1].id, tareas[n - 1].lista_id
     plan["otro_dia"] = [tareas[n - 1].titulo for n in plan.pop("tareas_para_otro_dia", []) if 1 <= n <= len(tareas)]
     plan["generado"] = momento.strftime("%H:%M")
     plan["agendado"] = False
+    plan["dia"] = dia.isoformat()
+    plan["ventana"] = {"desde": desde.strftime("%H:%M"), "hasta": hasta.strftime("%H:%M"), "libre": libre}
     archivo_plan(dia).write_text(json.dumps(plan, ensure_ascii=False))
     return jsonify(plan)
 
@@ -418,9 +460,9 @@ def api_plan():
 @app.post("/api/agendar")
 @requiere_login
 def api_agendar():
-    dia = ahora().date()
+    dia = ahora().date() + timedelta(days=1 if (request.json or {}).get("dia") == "manana" else 0)
     if not archivo_plan(dia).exists():
-        return jsonify(error="Primero genera tu plan."), 400
+        return jsonify(error="Primero genera tu horario."), 400
     plan = json.loads(archivo_plan(dia).read_text())
     g = google()
     g.borrar_bloques_del_organizador(dia)

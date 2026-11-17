@@ -493,3 +493,18 @@ body.actualizando .js-recargar .ic { animation: girar .9s linear infinite; }
 }
 .ajustes-grid input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
 .ajustes .fila-btn .btn { flex: 1; }
+
+/* ---------- generador de horario ---------- */
+.plan-dias { display: flex; gap: 6px; flex: none; }
+.horario-form { display: grid; gap: 10px; margin-top: 12px; }
+.hf-horas { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.hf-horas label, .hf-l { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.hf-l small { font-weight: 400; }
+.hf-horas input[type=time] {
+  border: 1px solid var(--glass-borde); background: var(--campo); border-radius: 13px; padding: 9px 11px; font-size: 16px; font-weight: 700;
+  color: var(--text); outline: none; font-variant-numeric: tabular-nums; min-width: 118px;
+}
+.hf-horas input[type=time]:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+.hf-dur { font-size: 13px; font-weight: 600; color: var(--brand-fuerte); background: var(--brand-soft); border-radius: 999px; padding: 6px 12px; margin-bottom: 4px; }
+.horario-form textarea { resize: vertical; min-height: 96px; font-weight: 400; color: var(--text); }
+.hf-chk { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }

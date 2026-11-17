@@ -205,23 +205,62 @@ function pintarProgreso() {
 
 // ---------------------------------------------------------------- plan
 
+// El horario se genera para hoy o mañana, dentro del tiempo que el usuario diga que tiene
+let planDia = "hoy";
+const planForm = { hoy: null, manana: null };       // lo que el usuario va escribiendo, por día
+
+function horaSiguiente() {                           // la hora actual redondeada al próximo cuarto
+  const d = new Date(); d.setMinutes(Math.ceil((d.getMinutes() + 1) / 15) * 15, 0, 0);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+function formDe(dia) {
+  if (!planForm[dia]) {
+    const h = datos.horario || { inicio: "08:00", fin: "20:00" };
+    let desde = h.inicio;
+    if (dia === "hoy" && horaSiguiente() > h.inicio) desde = horaSiguiente();
+    planForm[dia] = { desde, hasta: h.fin > desde ? h.fin : "23:00", deberes: "", guardar: true, nota: "" };
+  }
+  return planForm[dia];
+}
+function duracion(f) {
+  const m = minutos(f.hasta) - minutos(f.desde);
+  if (!(m > 0)) return "Revisa las horas";
+  return `Tienes ${Math.floor(m / 60) ? Math.floor(m / 60) + " h " : ""}${m % 60 ? (m % 60) + " min" : ""}`.trim();
+}
+
 function pintarPlan() {
   const caja = $("#plan");
-  const plan = datos.plan;
-  const formulario = `
-    ${datos.ia ? '<textarea class="nota-input" id="nota" rows="2" placeholder="Indicaciones opcionales: “hoy salgo a las 6”, “estoy con poca energía”…"></textarea>' : '<div style="height:10px"></div>'}
-    <button class="btn block" id="btn-plan">${ico("chispa")}${plan ? "Rehacer mi plan" : "Generar mi plan"}</button>`;
-  if (!plan) {
-    caja.innerHTML = `<p class="plan-vacio">${datos.ia ? "Orga revisa tu agenda, tus tareas y tus metas, y arma un día realista con bloques de enfoque y descansos." : "Ordeno tus tareas por urgencia y las acomodo en tus horas libres, con pausas."}</p>${formulario}`;
+  const plan = planDia === "hoy" ? datos.plan : datos.plan_manana;
+  const f = formDe(planDia);
+  $("#plan-dias").innerHTML = [["hoy", "Hoy"], ["manana", "Mañana"]].map(([k, n]) => `<button class="chip ${planDia === k ? "on" : ""}" data-pd="${k}">${n}</button>`).join("");
+  const formulario = `<div class="horario-form">
+      <div class="hf-horas">
+        <label>Desde<input type="time" id="hf-desde" value="${esc(f.desde)}"></label>
+        <label>Hasta<input type="time" id="hf-hasta" value="${esc(f.hasta)}"></label>
+        <span class="hf-dur" id="hf-dur">${duracion(f)}</span>
+      </div>
+      <label class="hf-l">Mis deberes ${planDia === "hoy" ? "de hoy" : "de mañana"} <small>uno por línea · Orga suma tus tareas y eventos del calendario</small>
+        <textarea id="hf-deberes" rows="4" placeholder="Terminar informe de Econometría&#10;Repasar para el control&#10;Lavar ropa">${esc(f.deberes)}</textarea></label>
+      <label class="hf-chk"><input type="checkbox" id="hf-guardar" ${f.guardar ? "checked" : ""}> Guardarlos también en mis tareas, para marcarlos al terminar</label>
+      ${datos.ia ? `<input type="text" id="hf-nota" maxlength="300" placeholder="Indicación opcional: «estoy con poca energía», «lo difícil primero»…" value="${esc(f.nota)}">` : ""}
+      <button class="btn block" id="btn-plan">${ico("chispa")}${plan ? "Rehacer mi horario" : "Generar mi horario"}</button>
+    </div>`;
+  const enlazar = () => {
+    const leer_ = () => Object.assign(f, { desde: $("#hf-desde").value, hasta: $("#hf-hasta").value, deberes: $("#hf-deberes").value, guardar: $("#hf-guardar").checked, nota: ($("#hf-nota") || {}).value || "" });
+    ["#hf-desde", "#hf-hasta", "#hf-deberes", "#hf-guardar", "#hf-nota"].forEach((sel) => { const el = $(sel); if (el) el.oninput = () => { leer_(); $("#hf-dur").textContent = duracion(f); }; });
     $("#btn-plan").onclick = generarPlan;
+  };
+  if (!plan) {
+    caja.innerHTML = `<p class="plan-vacio">Dime cuánto tiempo tienes y qué deberes quieres cumplir. Orga los combina con tu calendario y tus tareas, y arma un horario realista con descansos.</p>${formulario}`;
     $("#plan-hora").textContent = "";
+    enlazar();
     return;
   }
-  $("#plan-hora").textContent = "Creado a las " + plan.generado;
-  const ahora = ahoraMin();
+  $("#plan-hora").textContent = `${plan.ventana ? plan.ventana.desde + " – " + plan.ventana.hasta + " · " : ""}creado ${plan.generado}`;
+  const ahora = planDia === "hoy" ? ahoraMin() : -1;
   const bloques = plan.bloques.map((b) => {
     const ini = minutos(b.inicio), fin = minutos(b.fin);
-    const estado = fin <= ahora ? "pasado" : ini <= ahora ? "ahora" : "";
+    const estado = ahora < 0 ? "" : fin <= ahora ? "pasado" : ini <= ahora ? "ahora" : "";
     return `<div class="bloque ${esc(b.tipo)} ${estado}">
       <div class="hora">${esc(b.inicio)}<br>${esc(b.fin)}</div>
       <div class="caja"><div class="t">${esc(b.titulo)}</div>${b.nota ? `<div class="n">${esc(b.nota)}</div>` : ""}</div>
@@ -231,43 +270,50 @@ function pintarPlan() {
     <p class="resumen">${esc(plan.resumen)}</p>
     <ol class="prioridades">${plan.prioridades.map((p, i) => `<li><b>${i + 1}</b><span>${esc(p)}</span></li>`).join("")}</ol>
     <div class="timeline">${bloques}</div>
-    ${plan.otro_dia && plan.otro_dia.length ? `<div class="nota-plan">${ico("caja")}<span>Mejor para otro día: ${plan.otro_dia.map(esc).join(", ")}</span></div>` : ""}
+    ${plan.otro_dia && plan.otro_dia.length ? `<div class="nota-plan">${ico("caja")}<span>No entró en tu tiempo, mejor otro día: ${plan.otro_dia.map(esc).join(", ")}</span></div>` : ""}
     <div class="nota-plan consejo">${ico("idea")}<span>${esc(sinEmoji(plan.consejo))}</span></div>
     <div class="fila-btn">
       <button class="btn ${plan.agendado ? "sec" : ""}" id="btn-agendar">${plan.agendado ? ico("check") + "En tu calendario" : ico("calendario") + "Poner en Google Calendar"}</button>
     </div>
-    <details class="rehacer"><summary>Rehacer el plan</summary>${formulario}</details>`;
-  $("#btn-plan").onclick = generarPlan;
+    <details class="rehacer"><summary>Cambiar el tiempo o los deberes y rehacer</summary>${formulario}</details>`;
+  enlazar();
   $("#btn-agendar").onclick = agendar;
 }
+$("#plan-dias").addEventListener("click", (e) => { const b = e.target.closest("[data-pd]"); if (b) { planDia = b.dataset.pd; pintarPlan(); } });
 
 async function generarPlan() {
-  const btn = $("#btn-plan");
+  const btn = $("#btn-plan"), dia = planDia, f = formDe(dia);
+  if (!(minutos(f.hasta) > minutos(f.desde))) { toast("La hora de fin debe ser después de la de inicio"); return; }
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Orga está armando tu plan…';
+  btn.innerHTML = '<span class="spinner"></span> Orga está armando tu horario…';
   try {
-    datos.plan = await api("/api/plan", { nota: ($("#nota") || {}).value || "" });
+    const plan = await api("/api/plan", { dia, desde: f.desde, hasta: f.hasta, nota: f.nota, guardar: f.guardar,
+      deberes: f.deberes.split("\n").map((x) => x.trim()).filter(Boolean) });
+    if (dia === "hoy") datos.plan = plan; else datos.plan_manana = plan;
+    const guardo = f.guardar && f.deberes.trim();
+    f.deberes = "";
     pintarPlan();
-    toast("¡Tu plan está listo! ✨");
+    toast("Tu horario está listo");
+    if (guardo) cargar(true);
   } catch (e) {
-    toast("😕 " + e.message);
+    toast(e.message);
     btn.disabled = false;
-    btn.textContent = "Intentar de nuevo";
+    btn.innerHTML = ico("chispa") + "Intentar de nuevo";
   }
 }
 
 async function agendar() {
-  const btn = $("#btn-agendar");
-  if (datos.plan.agendado && !confirm("¿Volver a poner los bloques? Se reemplazan los anteriores del Organizador.")) return;
+  const btn = $("#btn-agendar"), dia = planDia, plan = dia === "hoy" ? datos.plan : datos.plan_manana;
+  if (plan.agendado && !confirm("¿Volver a poner los bloques? Se reemplazan los anteriores de Orga en ese día.")) return;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Agendando…';
   try {
-    const r = await api("/api/agendar", {});
-    datos.plan.agendado = true;
-    toast(`📅 Agregué ${r.creados} bloques a tu calendario`);
+    const r = await api("/api/agendar", { dia });
+    plan.agendado = true;
+    toast(`Agregué ${r.creados} bloques a tu calendario`);
     await cargar();
   } catch (e) {
-    toast("😕 " + e.message);
+    toast(e.message);
     btn.disabled = false;
   }
 }
