@@ -274,6 +274,17 @@ def finvital():
     return app.send_static_file("finvital.html")
 
 
+from .colegio import bp as colegio_bp  # noqa: E402
+
+app.register_blueprint(colegio_bp)
+
+
+@app.route("/colegio")
+def colegio():
+    """ColegioFinanzas OS: la app React compilada (colegiofinanzas/ -> static/colegio/)."""
+    return app.send_static_file("colegio/index.html")
+
+
 @app.route("/manifest.webmanifest")
 def manifest():
     return app.send_static_file("manifest.webmanifest")
