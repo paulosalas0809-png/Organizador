@@ -673,6 +673,11 @@ def api_metas_quitar(meta_id):
     return jsonify(metas=metas.listar())
 
 
+from .mcp_orga import bp as mcp_bp  # noqa: E402  (conector de Orga para Claude)
+
+app.register_blueprint(mcp_bp)
+
+
 if __name__ == "__main__":
     puerto = int(os.getenv("PORT", "8000"))
     print(f"\n🌟 Organizador listo: abre http://localhost:{puerto} en tu navegador\n")
