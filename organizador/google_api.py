@@ -33,6 +33,7 @@ class Evento:
     todo_el_dia: bool
     creado_por_organizador: bool
     calendario: str = ""
+    calendario_id: str = ""
 
 
 @dataclass
@@ -135,6 +136,7 @@ class Google:
                         todo_el_dia=todo_el_dia,
                         creado_por_organizador=es_principal and privadas.get(ETIQUETA) == "1",
                         calendario=cal["nombre"],
+                        calendario_id=cal["id"],
                     ))
                 token = resp.get("nextPageToken")
                 if not token:
@@ -163,6 +165,54 @@ class Google:
             return False
         self.calendar.events().delete(calendarId=self.cfg.calendario_id, eventId=evento_id).execute()
         return True
+
+    def _ubicar_evento(self, evento_id: str) -> tuple[str, dict]:
+        """Busca un evento por id en tus calendarios. Devuelve (calendario_id, evento)."""
+        from googleapiclient.errors import HttpError
+        for cal in [{"id": self.cfg.calendario_id}] + self.calendarios():
+            try:
+                return cal["id"], self.calendar.events().get(calendarId=cal["id"], eventId=evento_id).execute()
+            except HttpError as e:
+                if e.status_code not in (400, 404, 410):
+                    raise
+        raise LookupError(evento_id)
+
+    def editar_evento(self, evento_id: str, titulo: str | None = None, inicio: datetime | None = None,
+                      fin: datetime | None = None, descripcion: str | None = None) -> dict:
+        """Cambia título, horario o descripción de un evento de cualquiera de tus calendarios."""
+        cal_id, e = self._ubicar_evento(evento_id)
+        cuerpo: dict = {}
+        if titulo is not None:
+            cuerpo["summary"] = titulo
+        if descripcion is not None:
+            cuerpo["description"] = descripcion
+        if inicio is not None or fin is not None:
+            if "dateTime" in e["start"]:
+                ini_actual = datetime.fromisoformat(e["start"]["dateTime"]).astimezone(self.cfg.zona)
+                fin_actual = datetime.fromisoformat(e["end"]["dateTime"]).astimezone(self.cfg.zona)
+            else:
+                ini_actual = datetime.combine(date.fromisoformat(e["start"]["date"]), time(9), self.cfg.zona)
+                fin_actual = ini_actual + timedelta(hours=1)
+            nuevo_ini = inicio or ini_actual
+            nuevo_fin = fin or (nuevo_ini + (fin_actual - ini_actual))
+            if nuevo_fin <= nuevo_ini:
+                raise ValueError("La hora de fin debe ser después de la de inicio.")
+            cuerpo["start"] = {"dateTime": nuevo_ini.isoformat(), "timeZone": str(self.cfg.zona)}
+            cuerpo["end"] = {"dateTime": nuevo_fin.isoformat(), "timeZone": str(self.cfg.zona)}
+        return self.calendar.events().patch(calendarId=cal_id, eventId=evento_id, body=cuerpo).execute()
+
+    def borrar_evento(self, evento_id: str) -> str:
+        """Borra un evento de cualquiera de tus calendarios. Devuelve su título."""
+        cal_id, e = self._ubicar_evento(evento_id)
+        self.calendar.events().delete(calendarId=cal_id, eventId=evento_id).execute()
+        return e.get("summary", "(sin título)")
+
+    def es_bloque_organizador(self, evento_id: str) -> bool:
+        try:
+            _, e = self._ubicar_evento(evento_id)
+        except LookupError:
+            return False
+        return e.get("extendedProperties", {}).get("private", {}).get(ETIQUETA) == "1"
 
     def crear_bloque(self, titulo: str, inicio: datetime, fin: datetime, descripcion: str = "") -> str:
         cuerpo = {
@@ -252,8 +302,55 @@ class Google:
                     titulos.append(t["title"].strip())
         return titulos
 
-    def crear_tarea(self, titulo: str, vence: date | None = None, notas: str = "") -> None:
-        lista_id = self.tasks.tasklists().list(maxResults=1).execute()["items"][0]["id"]
+    # ---------- Proyectos (listas de Google Tasks) ----------
+
+    def listas(self) -> list[dict]:
+        items = self.tasks.tasklists().list(maxResults=100).execute().get("items", [])
+        return [{"id": l["id"], "nombre": l.get("title", "")} for l in items]
+
+    def crear_lista(self, nombre: str) -> dict:
+        l = self.tasks.tasklists().insert(body={"title": nombre}).execute()
+        return {"id": l["id"], "nombre": l.get("title", "")}
+
+    def renombrar_lista(self, lista_id: str, nombre: str) -> None:
+        self.tasks.tasklists().patch(tasklist=lista_id, body={"title": nombre}).execute()
+
+    def borrar_lista(self, lista_id: str) -> None:
+        self.tasks.tasklists().delete(tasklist=lista_id).execute()
+
+    def editar_tarea(self, lista_id: str, tarea_id: str, titulo: str | None = None, notas: str | None = None) -> None:
+        cuerpo = {k: v for k, v in (("title", titulo), ("notes", notas)) if v is not None}
+        if cuerpo:
+            self.tasks.tasks().patch(tasklist=lista_id, task=tarea_id, body=cuerpo).execute()
+
+    def borrar_tarea(self, lista_id: str, tarea_id: str) -> None:
+        self.tasks.tasks().delete(tasklist=lista_id, task=tarea_id).execute()
+
+    def reabrir_tarea(self, lista_id: str, tarea_id: str) -> None:
+        self.tasks.tasks().patch(tasklist=lista_id, task=tarea_id, body={"status": "needsAction", "completed": None}).execute()
+
+    def tareas_completadas(self, dias: int = 14) -> list[Tarea]:
+        """Tareas completadas en los últimos días (para poder reabrirlas)."""
+        desde = datetime.combine(datetime.now(self.cfg.zona).date() - timedelta(days=dias), time.min, self.cfg.zona)
+        salida = []
+        for l in self.listas():
+            resp = self.tasks.tasks().list(tasklist=l["id"], showCompleted=True, showHidden=True,
+                                           completedMin=desde.isoformat(), maxResults=100).execute()
+            for t in resp.get("items", []):
+                if t.get("status") == "completed" and (t.get("title") or "").strip():
+                    salida.append(Tarea(t["id"], l["id"], l["nombre"], t["title"].strip(), t.get("notes", ""),
+                                        date.fromisoformat(t["due"][:10]) if t.get("due") else None))
+        return salida
+
+    def mover_tarea(self, lista_id: str, tarea_id: str, lista_destino: str) -> None:
+        """Pasa una tarea a otro proyecto (lista), conservando título, notas y fecha."""
+        t = self.tasks.tasks().get(tasklist=lista_id, task=tarea_id).execute()
+        cuerpo = {k: t[k] for k in ("title", "notes", "due") if t.get(k)}
+        self.tasks.tasks().insert(tasklist=lista_destino, body=cuerpo).execute()
+        self.tasks.tasks().delete(tasklist=lista_id, task=tarea_id).execute()
+
+    def crear_tarea(self, titulo: str, vence: date | None = None, notas: str = "", lista_id: str | None = None) -> None:
+        lista_id = lista_id or self.tasks.tasklists().list(maxResults=1).execute()["items"][0]["id"]
         cuerpo = {"title": titulo, "notes": notas}
         if vence:
             cuerpo["due"] = f"{vence.isoformat()}T00:00:00.000Z"

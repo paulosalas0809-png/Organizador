@@ -81,6 +81,19 @@ def _buscar_tarea(g, id_tarea: str):
     raise ErrorUsuario(f"No encontré una tarea pendiente con id {id_tarea!r}. Usa ver_tareas para ver los ids.")
 
 
+def _lista(g, ref: str) -> dict:
+    """Un proyecto (lista de Google Tasks) por su id o por su nombre."""
+    ref = str(ref or "").strip()
+    listas = g.listas()
+    for l in listas:
+        if l["id"] == ref:
+            return l
+    coinciden = [l for l in listas if l["nombre"].strip().lower() == ref.lower()]
+    if len(coinciden) == 1:
+        return coinciden[0]
+    raise ErrorUsuario(f"No encontré el proyecto {ref!r}. Proyectos: " + ", ".join(f"«{l['nombre']}» (id={l['id']})" for l in listas))
+
+
 def _texto_tarea(t, hoy: date) -> str:
     if t.vence is None:
         estado = "sin fecha"
@@ -90,7 +103,7 @@ def _texto_tarea(t, hoy: date) -> str:
         estado = "vence HOY"
     else:
         estado = f"vence {t.vence.isoformat()}"
-    return f"- {t.titulo} [{estado}] (lista «{t.lista}», id={_id_tarea(t)})" + (f" — {t.notas[:150]}" if t.notas else "")
+    return f"- {t.titulo} [{estado}] (proyecto «{t.lista}», id={_id_tarea(t)})" + (f" — {t.notas[:150]}" if t.notas else "")
 
 
 # ---------------------------------------------------------------- herramientas
@@ -137,14 +150,103 @@ def ver_agenda(a: dict) -> str:
     return "\n".join(salida)
 
 
-def ver_tareas(_: dict) -> str:
+def ver_tareas(a: dict) -> str:
     w = _w()
     hoy = w.ahora().date()
     g = w.google()
     tareas = w.ordenar(g.tareas_pendientes())
-    hechas = g.tareas_completadas_hoy(hoy)
+    if a.get("proyecto"):
+        l = _lista(g, a["proyecto"])
+        tareas = [t for t in tareas if t.lista_id == l["id"]]
     texto = "TAREAS PENDIENTES:\n" + ("\n".join(_texto_tarea(t, hoy) for t in tareas) or "(ninguna)")
-    return texto + "\n\nCOMPLETADAS HOY: " + (", ".join(hechas) or "ninguna")
+    if a.get("incluir_completadas"):
+        hechas = g.tareas_completadas(14)
+        texto += "\n\nCOMPLETADAS EN LOS ÚLTIMOS 14 DÍAS (se pueden reabrir):\n" + (
+            "\n".join(f"- {t.titulo} (proyecto «{t.lista}», id={_id_tarea(t)})" for t in hechas) or "(ninguna)")
+    else:
+        texto += "\n\nCOMPLETADAS HOY: " + (", ".join(g.tareas_completadas_hoy(hoy)) or "ninguna")
+    return texto
+
+
+def ver_proyectos(_: dict) -> str:
+    w = _w()
+    g = w.google()
+    pendientes = g.tareas_pendientes()
+    return "PROYECTOS (listas de Google Tasks):\n" + "\n".join(
+        f"- {l['nombre']} (id={l['id']}): {sum(1 for t in pendientes if t.lista_id == l['id'])} tareas pendientes" for l in g.listas())
+
+
+def crear_proyecto(a: dict) -> str:
+    nombre = str(a.get("nombre", "")).strip()[:100]
+    if not nombre:
+        raise ErrorUsuario("Falta el nombre del proyecto.")
+    l = _w().google().crear_lista(nombre)
+    return f"Proyecto creado: «{l['nombre']}» (id={l['id']})."
+
+
+def renombrar_proyecto(a: dict) -> str:
+    nombre = str(a.get("nombre_nuevo", "")).strip()[:100]
+    if not nombre:
+        raise ErrorUsuario("Falta el nombre nuevo.")
+    g = _w().google()
+    l = _lista(g, a.get("proyecto", ""))
+    g.renombrar_lista(l["id"], nombre)
+    return f"Proyecto renombrado: «{l['nombre']}» → «{nombre}»."
+
+
+def borrar_proyecto(a: dict) -> str:
+    g = _w().google()
+    l = _lista(g, a.get("proyecto", ""))
+    n = sum(1 for t in g.tareas_pendientes() if t.lista_id == l["id"])
+    if not a.get("confirmado"):
+        raise ErrorUsuario(f"Borrar «{l['nombre']}» elimina también sus {n} tareas pendientes. Pide confirmación al usuario y repite con confirmado=true.")
+    if len(g.listas()) <= 1:
+        raise ErrorUsuario("Es tu único proyecto: Google Tasks no permite borrarlo. Puedes renombrarlo.")
+    g.borrar_lista(l["id"])
+    return f"Proyecto «{l['nombre']}» borrado (con {n} tareas pendientes)."
+
+
+def editar_tarea(a: dict) -> str:
+    w = _w()
+    g = w.google()
+    t = _buscar_tarea(g, a.get("id", ""))
+    cambios = []
+    titulo = str(a["titulo"]).strip()[:200] if a.get("titulo") is not None else None
+    if titulo is not None and not titulo:
+        raise ErrorUsuario("El título no puede quedar vacío.")
+    notas = str(a["notas"])[:1000] if a.get("notas") is not None else None
+    if titulo is not None or notas is not None:
+        g.editar_tarea(t.lista_id, t.id, titulo=titulo, notas=notas)
+        cambios += ([f"título «{t.titulo}» → «{titulo}»"] if titulo is not None else []) + (["notas actualizadas"] if notas is not None else [])
+    if "fecha" in a:
+        nueva = _fecha(a["fecha"]) if a.get("fecha") else None
+        g.cambiar_fecha_tarea(t.lista_id, t.id, nueva)
+        cambios.append(f"fecha → {nueva.isoformat()}" if nueva else "sin fecha")
+    if a.get("proyecto"):
+        destino = _lista(g, a["proyecto"])
+        if destino["id"] != t.lista_id:
+            g.mover_tarea(t.lista_id, t.id, destino["id"])
+            cambios.append(f"movida al proyecto «{destino['nombre']}» (su id cambió; usa ver_tareas)")
+    if not cambios:
+        raise ErrorUsuario("No indicaste qué cambiar (titulo, notas, fecha o proyecto).")
+    return f"Tarea «{titulo or t.titulo}» actualizada: " + "; ".join(cambios) + "."
+
+
+def borrar_tarea(a: dict) -> str:
+    g = _w().google()
+    t = _buscar_tarea(g, a.get("id", ""))
+    g.borrar_tarea(t.lista_id, t.id)
+    return f"Tarea borrada: «{t.titulo}»."
+
+
+def reabrir_tarea(a: dict) -> str:
+    g = _w().google()
+    lista_id, _, tarea_id = str(a.get("id", "")).partition(":")
+    t = next((x for x in g.tareas_completadas(30) if x.id == tarea_id and x.lista_id == lista_id), None)
+    if t is None:
+        raise ErrorUsuario("No encontré esa tarea completada. Usa ver_tareas con incluir_completadas=true.")
+    g.reabrir_tarea(t.lista_id, t.id)
+    return f"Tarea reabierta: «{t.titulo}» vuelve a estar pendiente."
 
 
 def crear_tarea(a: dict) -> str:
@@ -153,8 +255,11 @@ def crear_tarea(a: dict) -> str:
     if not titulo:
         raise ErrorUsuario("Falta el título de la tarea.")
     vence = _fecha(a["fecha"]) if a.get("fecha") else None
-    w.google().crear_tarea(titulo, vence=vence, notas=str(a.get("notas", ""))[:1000])
-    return f"Tarea creada: «{titulo}»" + (f" para el {vence.isoformat()}" if vence else " (sin fecha)") + "."
+    g = w.google()
+    lista = _lista(g, a["proyecto"]) if a.get("proyecto") else None
+    g.crear_tarea(titulo, vence=vence, notas=str(a.get("notas", ""))[:1000], lista_id=lista["id"] if lista else None)
+    return (f"Tarea creada: «{titulo}»" + (f" para el {vence.isoformat()}" if vence else " (sin fecha)")
+            + (f" en el proyecto «{lista['nombre']}»" if lista else "") + ".")
 
 
 def completar_tarea(a: dict) -> str:
@@ -189,10 +294,48 @@ def crear_evento(a: dict) -> str:
 
 
 def borrar_evento(a: dict) -> str:
+    g = _w().google()
+    evento_id = str(a.get("id", ""))
+    if not g.es_bloque_organizador(evento_id) and not a.get("confirmado"):
+        raise ErrorUsuario("Ese evento no lo creó Orga (es de uno de tus calendarios). Pide confirmación al usuario y repite con confirmado=true.")
+    try:
+        titulo = g.borrar_evento(evento_id)
+    except LookupError:
+        raise ErrorUsuario("No encontré ese evento. Usa ver_agenda para ver los ids.") from None
+    return f"Evento borrado: «{titulo}»."
+
+
+def editar_evento(a: dict) -> str:
     w = _w()
-    if w.google().borrar_evento_organizador(str(a.get("id", ""))):
-        return "Evento borrado."
-    raise ErrorUsuario("Solo puedo borrar eventos creados por Orga (los marcados «bloque de Orga» en ver_agenda).")
+    g = w.google()
+    evento_id = str(a.get("id", ""))
+    try:
+        _, actual = g._ubicar_evento(evento_id)
+    except LookupError:
+        raise ErrorUsuario("No encontré ese evento. Usa ver_agenda para ver los ids.") from None
+    if "dateTime" in actual["start"]:
+        dia_actual = datetime.fromisoformat(actual["start"]["dateTime"]).astimezone(w.cfg.zona).date()
+    else:
+        dia_actual = date.fromisoformat(actual["start"]["date"])
+    d = _fecha(a["fecha"]) if a.get("fecha") else dia_actual
+    ini = datetime.combine(d, _hora(a["hora_inicio"], "hora_inicio"), w.cfg.zona) if a.get("hora_inicio") else None
+    fin = datetime.combine(d, _hora(a["hora_fin"], "hora_fin"), w.cfg.zona) if a.get("hora_fin") else None
+    if a.get("fecha") and ini is None:
+        if "dateTime" not in actual["start"]:
+            raise ErrorUsuario("Es un evento de todo el día: indica también hora_inicio y hora_fin para moverlo.")
+        ini = datetime.combine(d, datetime.fromisoformat(actual["start"]["dateTime"]).astimezone(w.cfg.zona).time(), w.cfg.zona)
+    titulo = str(a["titulo"]).strip()[:150] if a.get("titulo") else None
+    nota = str(a["nota"])[:1000] if a.get("nota") is not None else None
+    if titulo is None and nota is None and ini is None and fin is None:
+        raise ErrorUsuario("No indicaste qué cambiar (titulo, fecha, hora_inicio, hora_fin o nota).")
+    try:
+        e = g.editar_evento(evento_id, titulo=titulo, inicio=ini, fin=fin, descripcion=nota)
+    except ValueError as err:
+        raise ErrorUsuario(str(err)) from None
+    s, f = e["start"], e["end"]
+    cuando = (f"{datetime.fromisoformat(s['dateTime']).astimezone(w.cfg.zona):%Y-%m-%d %H:%M}-{datetime.fromisoformat(f['dateTime']).astimezone(w.cfg.zona):%H:%M}"
+              if "dateTime" in s else f"{s['date']} (todo el día)")
+    return f"Evento actualizado: «{e.get('summary', '')}» {cuando}."
 
 
 def ver_huecos_libres(a: dict) -> str:
@@ -310,22 +453,45 @@ HERRAMIENTAS = {
                     {}, [], SOLO_LECTURA),
     "ver_agenda": (ver_agenda, "Eventos de Google Calendar (con sus ids) y tareas que vencen, para uno o varios días.",
                    {"fecha": _p("string", "Primer día, AAAA-MM-DD (por defecto hoy)"), "dias": _p("integer", "Cuántos días mostrar, 1 a 14 (por defecto 1)")}, [], SOLO_LECTURA),
-    "ver_tareas": (ver_tareas, "Lista de tareas pendientes de Google Tasks con su id y fecha, y lo completado hoy.", {}, [], SOLO_LECTURA),
+    "ver_tareas": (ver_tareas, "Tareas pendientes de Google Tasks con su id, fecha y proyecto, y lo completado hoy.",
+                   {"proyecto": _p("string", "Nombre o id de un proyecto para ver solo sus tareas (opcional)"),
+                    "incluir_completadas": _p("boolean", "true para listar también las completadas de los últimos 14 días (para reabrirlas)")}, [], SOLO_LECTURA),
+    "ver_proyectos": (ver_proyectos, "Proyectos del usuario (las listas de Google Tasks) con su id y cuántas tareas pendientes tienen.", {}, [], SOLO_LECTURA),
     "ver_huecos_libres": (ver_huecos_libres, "Tiempo libre de un día entre dos horas, descontando los eventos del calendario.",
                           {"fecha": _p("string", "AAAA-MM-DD (por defecto hoy)"), "desde": _p("string", "HH:MM (por defecto el inicio de su horario productivo)"),
                            "hasta": _p("string", "HH:MM (por defecto el fin de su horario productivo)")}, [], SOLO_LECTURA),
     "ver_metas": (ver_metas, "Metas personales del usuario guardadas en Orga.", {}, [], SOLO_LECTURA),
     "crear_tarea": (crear_tarea, "Crea una tarea en Google Tasks.",
-                    {"titulo": _p("string", "Título de la tarea"), "fecha": _p("string", "Vencimiento AAAA-MM-DD (opcional)"), "notas": _p("string", "Notas (opcional)")},
+                    {"titulo": _p("string", "Título de la tarea"), "fecha": _p("string", "Vencimiento AAAA-MM-DD (opcional)"), "notas": _p("string", "Notas (opcional)"),
+                     "proyecto": _p("string", "Nombre o id del proyecto donde crearla (opcional; por defecto el primero)")},
                     ["titulo"], ESCRITURA),
+    "editar_tarea": (editar_tarea, "Edita una tarea: cambia su título (nombre), notas, fecha o la mueve a otro proyecto. Solo envía lo que cambia.",
+                     {"id": _p("string", "id de la tarea (de ver_tareas)"), "titulo": _p("string", "Nuevo título"), "notas": _p("string", "Nuevas notas (reemplazan las anteriores)"),
+                      "fecha": _p("string", "Nueva fecha AAAA-MM-DD; vacío para quitar la fecha"), "proyecto": _p("string", "Nombre o id del proyecto al que moverla")},
+                     ["id"], ESCRITURA),
+    "borrar_tarea": (borrar_tarea, "Borra una tarea (no la marca como hecha: la elimina). Confirma con el usuario antes.",
+                     {"id": _p("string", "id de la tarea (de ver_tareas)")}, ["id"], {**ESCRITURA, "destructiveHint": True}),
+    "reabrir_tarea": (reabrir_tarea, "Vuelve a poner como pendiente una tarea completada.",
+                      {"id": _p("string", "id de la tarea completada (de ver_tareas con incluir_completadas=true)")}, ["id"], ESCRITURA),
+    "crear_proyecto": (crear_proyecto, "Crea un proyecto nuevo (una lista en Google Tasks).", {"nombre": _p("string", "Nombre del proyecto")}, ["nombre"], ESCRITURA),
+    "renombrar_proyecto": (renombrar_proyecto, "Cambia el nombre de un proyecto.",
+                           {"proyecto": _p("string", "Nombre actual o id"), "nombre_nuevo": _p("string", "Nombre nuevo")}, ["proyecto", "nombre_nuevo"], ESCRITURA),
+    "borrar_proyecto": (borrar_proyecto, "Borra un proyecto y todas sus tareas. Requiere confirmado=true después de preguntar al usuario.",
+                        {"proyecto": _p("string", "Nombre o id"), "confirmado": _p("boolean", "true solo si el usuario ya confirmó")}, ["proyecto"],
+                        {**ESCRITURA, "destructiveHint": True}),
     "completar_tarea": (completar_tarea, "Marca una tarea como completada.", {"id": _p("string", "id de la tarea (de ver_tareas)")}, ["id"], ESCRITURA),
     "reprogramar_tarea": (reprogramar_tarea, "Cambia la fecha de una tarea (fecha vacía la deja sin fecha).",
                           {"id": _p("string", "id de la tarea (de ver_tareas)"), "fecha": _p("string", "Nueva fecha AAAA-MM-DD")}, ["id"], ESCRITURA),
     "crear_evento": (crear_evento, "Crea un evento o bloque de tiempo en Google Calendar (queda marcado como de Orga).",
                      {"titulo": _p("string", "Título"), "fecha": _p("string", "AAAA-MM-DD"), "hora_inicio": _p("string", "HH:MM"), "hora_fin": _p("string", "HH:MM"),
                       "nota": _p("string", "Descripción (opcional)")}, ["titulo", "fecha", "hora_inicio", "hora_fin"], ESCRITURA),
-    "borrar_evento": (borrar_evento, "Borra un evento creado por Orga (no borra eventos de otros calendarios).",
-                      {"id": _p("string", "id del evento (de ver_agenda)")}, ["id"], {**ESCRITURA, "destructiveHint": True}),
+    "editar_evento": (editar_evento, "Edita un evento de cualquiera de sus calendarios: título, fecha, horario o descripción. Solo envía lo que cambia; si cambias la fecha sin horas, conserva el horario.",
+                      {"id": _p("string", "id del evento (de ver_agenda)"), "titulo": _p("string", "Nuevo título"), "fecha": _p("string", "Nueva fecha AAAA-MM-DD"),
+                       "hora_inicio": _p("string", "HH:MM"), "hora_fin": _p("string", "HH:MM (si solo cambias el inicio, se conserva la duración)"),
+                       "nota": _p("string", "Nueva descripción")}, ["id"], ESCRITURA),
+    "borrar_evento": (borrar_evento, "Borra un evento. Los de Orga se borran directo; los de otros calendarios requieren confirmado=true después de preguntar al usuario.",
+                      {"id": _p("string", "id del evento (de ver_agenda)"), "confirmado": _p("boolean", "true solo si el usuario ya confirmó")}, ["id"],
+                      {**ESCRITURA, "destructiveHint": True}),
     "guardar_horario": (guardar_horario, "Guarda el horario del día que armaste para que aparezca en la sección «Tu horario» de Orga (solo hoy o mañana). Opcionalmente lo pone en Google Calendar.",
                         {"fecha": _p("string", "AAAA-MM-DD, hoy o mañana (por defecto hoy)"), "resumen": _p("string", "2-3 frases sobre el día"),
                          "prioridades": {"type": "array", "items": {"type": "string"}, "description": "Las 3 cosas más importantes"},
@@ -363,7 +529,9 @@ def _llamar(nombre: str, argumentos: dict) -> dict:
         texto, error = ("Orga perdió la conexión con Google. Pide al usuario que abra Orga y pulse «Conectar Google» "
                         "(pasa cada 7 días mientras la app de Google esté en modo de prueba)."), True
     except HttpError as e:
-        texto, error = f"Google respondió con un error ({e.status_code}).", True
+        texto = (f"Google no dejó hacer el cambio ({e.status_code}): ese calendario o lista es de solo lectura para el usuario."
+                 if e.status_code == 403 else f"Google respondió con un error ({e.status_code}).")
+        error = True
     except Exception as e:  # noqa: BLE001 — se informa a Claude en lugar de romper la conexión
         traceback.print_exc()
         texto, error = f"Error inesperado en Orga: {type(e).__name__}.", True
@@ -393,7 +561,7 @@ def _atender(m: dict) -> dict | None:
         return _respuesta(mid, {
             "protocolVersion": pedida if pedida in VERSIONES else VERSIONES[0],
             "capabilities": {"tools": {"listChanged": False}},
-            "serverInfo": {"name": "orga", "title": "Orga — tu organizador", "version": "1.0.0"},
+            "serverInfo": {"name": "orga", "title": "Orga — tu organizador", "version": "1.1.0"},
             "instructions": INSTRUCCIONES,
         })
     if metodo == "ping":
