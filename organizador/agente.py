@@ -150,6 +150,8 @@ def contexto_general(g: Google, cfg: Config, ahora: datetime, tareas: list[Tarea
     if not tareas:
         lineas.append("(ninguna)")
     lineas += ["", "COMPLETADAS HOY: " + (", ".join(completadas) if completadas else "ninguna todavía")]
+    from .estudio import PlanEstudio
+    lineas += ["", PlanEstudio(cfg.carpeta_datos).texto(hoy, dias_semana=DIAS)]
     return "\n".join(lineas)
 
 

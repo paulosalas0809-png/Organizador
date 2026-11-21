@@ -26,6 +26,7 @@ from .config import cargar_config
 from .google_api import SCOPES, EscrituraDesactivada, Google, Tarea, guardar_permisos, huecos_libres, leer_permisos
 from .agente import Agente, ErrorIA, Metas, gemini_disponible, hablar, motivacion_del_dia, plan_con_gemini, transcribir
 from .planificador import DIAS, construir_contexto, conversar, generar_plan, plan_sin_ia
+from .estudio import ErrorEstudio, PlanEstudio
 
 EN_SERVIDOR = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("EN_SERVIDOR"))
 if not EN_SERVIDOR:
@@ -37,6 +38,7 @@ cfg = cargar_config()
 cfg.carpeta_datos.mkdir(parents=True, exist_ok=True)
 ARCHIVO_TOKEN = cfg.carpeta_datos / "google_token.json"
 metas = Metas(cfg.carpeta_datos)
+estudio = PlanEstudio(cfg.carpeta_datos)
 
 TIPOS_AGENDABLES = {"tarea", "enfoque", "rutina"}
 ICONOS = {"tarea": "✅", "evento": "📅", "descanso": "☕", "enfoque": "🎯", "rutina": "🔁"}
@@ -408,6 +410,39 @@ def _hora_valida(texto, defecto):
         return datetime.strptime(str(texto), "%H:%M").time()
     except ValueError:
         return defecto
+
+
+@app.get("/api/estudio")
+@requiere_login
+def api_estudio():
+    return jsonify(hoy=ahora().date().isoformat(), **estudio.cargar())
+
+
+@app.post("/api/estudio/bloques/<bloque_id>")
+@requiere_login
+def api_estudio_marcar(bloque_id):
+    try:
+        estudio.editar_bloque(bloque_id, {"hecho": bool((request.json or {}).get("hecho", True))})
+    except ErrorEstudio as e:
+        return jsonify(error=str(e)), 404
+    return jsonify(hoy=ahora().date().isoformat(), **estudio.cargar())
+
+
+@app.delete("/api/estudio/bloques/<bloque_id>")
+@requiere_login
+def api_estudio_borrar(bloque_id):
+    try:
+        quitados = estudio.borrar_bloques(ids=[bloque_id])
+    except ErrorEstudio as e:
+        return jsonify(error=str(e)), 404
+    aviso = ""
+    for b in quitados:
+        if b.get("evento_id"):
+            try:
+                google().borrar_evento_organizador(b["evento_id"])
+            except (PermissionError, EscrituraDesactivada, HttpError):
+                aviso = "Se quitó de Orga, pero sigue en tu Google Calendar (los cambios en Calendar están desactivados o Google no respondió)."
+    return jsonify(hoy=ahora().date().isoformat(), aviso=aviso, **estudio.cargar())
 
 
 @app.get("/api/permisos")

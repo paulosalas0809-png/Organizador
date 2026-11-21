@@ -973,6 +973,146 @@ async function terminarGrabacion() {
 $("#btn-mic").onclick = () => (voz.grabando ? detenerGrabacion(false) : iniciarGrabacion());
 $("#grabando-cancelar").onclick = () => detenerGrabacion(true);
 
+// ---------------------------------------------------------------- plan de estudio
+
+let estudio = leer("estudio", null);
+let estPrioridad = "", estPeriodo = "prox";
+const DIAS_LARGOS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const PRIO_ORDEN = { alta: 0, media: 1, baja: 2 };
+const PRIO_TXT = { alta: "Alta", media: "Media", baja: "Baja" };
+
+function duracion(min) {
+  if (!min) return "0 h";
+  const h = Math.floor(min / 60), m = min % 60;
+  return h ? (m ? `${h} h ${String(m).padStart(2, "0")}` : `${h} h`) : `${m} min`;
+}
+const minBloque = (b) => minutos(b.fin) - minutos(b.inicio);
+const fechaEst = (iso) => new Date(iso + "T12:00:00");
+
+async function cargarEstudio() {
+  try {
+    estudio = await api("/api/estudio");
+    guardar("estudio", estudio);
+  } catch (e) { if (!estudio) { $("#est-dias").innerHTML = `<p class="vacio">${esc(e.message)}</p>`; } return; }
+  pintarEstudio();
+}
+
+function pintarEstudio() {
+  if (!estudio) return;
+  const hoy = estudio.hoy || new Date().toISOString().slice(0, 10);
+  const materias = Object.fromEntries(estudio.materias.map((m) => [m.id, m]));
+  const deEstudio = estudio.bloques.filter((b) => b.tipo === "estudio");
+  const pendientesHoy = deEstudio.filter((b) => b.fecha === hoy && !b.hecho).length;
+  $("#nav-estudio").textContent = pendientesHoy || "";
+
+  // Tarjetas por materia (prioridad alta primero)
+  const horas = {};
+  for (const b of deEstudio) {
+    const h = horas[b.materia_id] || (horas[b.materia_id] = { plan: 0, hecho: 0 });
+    h.plan += minBloque(b); if (b.hecho) h.hecho += minBloque(b);
+  }
+  const lista = estudio.materias.filter((m) => !estPrioridad || m.prioridad === estPrioridad)
+    .sort((a, b) => PRIO_ORDEN[a.prioridad] - PRIO_ORDEN[b.prioridad] || (a.examen || "9").localeCompare(b.examen || "9"));
+  $("#est-materias").innerHTML = lista.map((m) => {
+    const h = horas[m.id] || { plan: 0, hecho: 0 };
+    const meta = m.horas_objetivo ? m.horas_objetivo * 60 : h.plan;
+    const pct = meta ? Math.min(100, Math.round((h.hecho / meta) * 100)) : 0;
+    let examen = "";
+    if (m.examen) {
+      const dias = Math.round((fechaEst(m.examen) - fechaEst(hoy)) / 864e5);
+      examen = dias < 0 ? " · examen pasado" : dias === 0 ? " · examen HOY" : dias === 1 ? " · examen mañana" : ` · examen en ${dias} días`;
+    }
+    return `<div class="card mat mc${m.color % 8}">
+      <div class="mat-top"><span class="nombre" title="${esc(m.nombre)}">${esc(m.nombre)}</span><span class="prio ${m.prioridad}">${PRIO_TXT[m.prioridad]}</span></div>
+      <b>${duracion(h.plan)}</b>
+      <small>${duracion(h.hecho)} hechas${m.horas_objetivo ? ` de ${m.horas_objetivo} h` : ""}${examen}</small>
+      <div class="mini"><i style="width:${pct}%"></i></div></div>`;
+  }).join("");
+
+  // Bloques del periodo y prioridad elegidos
+  const enPeriodo = estudio.bloques.filter((b) => (estPeriodo === "prox" ? b.fecha >= hoy : b.fecha < hoy));
+  const visibles = enPeriodo.filter((b) => !estPrioridad || b.tipo === "estudio" && b.prioridad === estPrioridad);
+  const contables = visibles.filter((b) => b.tipo === "estudio");
+  const hechos = contables.filter((b) => b.hecho).length;
+  $("#est-prog-txt").innerHTML = `Progreso: <b>${hechos} de ${contables.length}</b> bloques · ${duracion(contables.reduce((a, b) => a + minBloque(b), 0))} de estudio`;
+  $("#est-prog-barra").style.width = contables.length ? `${Math.round((hechos / contables.length) * 100)}%` : "0";
+  const totalPlan = deEstudio.filter((b) => b.fecha >= hoy).reduce((a, b) => a + minBloque(b), 0);
+  $("#est-sub").textContent = estudio.materias.length
+    ? `${estudio.materias.length} materia${estudio.materias.length === 1 ? "" : "s"} · ${duracion(totalPlan)} por estudiar`
+    : "Tu plan, armado con Claude";
+
+  if (!estudio.materias.length && !estudio.bloques.length) {
+    $("#est-dias").innerHTML = `<div class="est-vacio">${ico("libro")}<b>Todavía no tienes un plan de estudio</b>
+      <span>Pídeselo a tu chat de Claude (con el conector Orga activo). Por ejemplo:</span>
+      <ul><li>«Tengo final de Econometría el jueves, prioridad alta. Armé bloques de estudio desde mañana»</li>
+      <li>«Agrega Finanzas Internacionales con prioridad media, 2 horas esta semana»</li>
+      <li>«Ponme los bloques también en Google Calendar»</li></ul></div>`;
+    return;
+  }
+  if (!visibles.length) {
+    $("#est-dias").innerHTML = `<p class="vacio" style="padding:18px 0 4px">${estPeriodo === "prox" ? "No hay bloques próximos" : "No hay bloques anteriores"}${estPrioridad ? ` con prioridad ${estPrioridad}` : ""}.</p>`;
+    return;
+  }
+  const porDia = {};
+  for (const b of visibles) (porDia[b.fecha] = porDia[b.fecha] || []).push(b);
+  const fechas = Object.keys(porDia).sort();
+  if (estPeriodo === "ant") fechas.reverse();
+  const manana = new Date(fechaEst(hoy).getTime() + 864e5).toISOString().slice(0, 10);
+  $("#est-dias").innerHTML = fechas.map((f) => {
+    const d = fechaEst(f);
+    const cuando = f === hoy ? '<span class="cuando">Hoy</span>' : f === manana ? '<span class="cuando">Mañana</span>' : "";
+    const filas = porDia[f].map((b) => {
+      const m = materias[b.materia_id];
+      if (b.tipo === "descanso") {
+        return `<div class="bq descanso"><span class="sin-check"></span><span class="h">${b.inicio}–${b.fin}</span>
+          <div class="cuerpo"><span class="t">${esc(b.titulo)}</span></div></div>`;
+      }
+      return `<div class="bq ${b.hecho ? "hecho" : ""} ${m ? "mc" + (m.color % 8) : ""}" data-id="${esc(b.id)}">
+        <button class="check" title="${b.hecho ? "Marcar como pendiente" : "Marcar como hecho"}" aria-pressed="${b.hecho}">${ico("check")}</button>
+        <span class="h">${b.inicio}–${b.fin}</span>
+        <div class="cuerpo">${m ? `<span class="tag">${esc(m.corto)}</span>` : ""}<span class="t">${esc(b.titulo)}</span></div>
+        <div class="acc"><i class="pdot ${b.prioridad}" title="Prioridad ${b.prioridad}"></i>
+          ${b.evento_id ? `<span class="cal" title="También está en Google Calendar">${ico("calendario")}</span>` : ""}
+          <button class="icon-btn fantasma chico borrar-bq" title="Quitar bloque">${ico("x")}</button></div></div>`;
+    }).join("");
+    return `<div class="est-dia"><div class="est-dia-head"><h2>${DIAS_LARGOS[d.getDay()]} ${d.getDate()}${cuando}</h2>
+      <span>${esc(estudio.notas[f] || "")}</span></div>${filas}</div>`;
+  }).join("");
+}
+
+$("#est-dias").addEventListener("click", async (e) => {
+  const fila = e.target.closest(".bq[data-id]");
+  if (!fila) return;
+  const id = fila.dataset.id, b = estudio.bloques.find((x) => x.id === id);
+  if (!b) return;
+  if (e.target.closest(".check")) {
+    b.hecho = !b.hecho; pintarEstudio();
+    try { estudio = await api(`/api/estudio/bloques/${encodeURIComponent(id)}`, { hecho: b.hecho }); guardar("estudio", estudio); if (b.hecho) toast("¡Bloque completado! Sigue así"); }
+    catch (err) { b.hecho = !b.hecho; toast(err.message); }
+    pintarEstudio();
+  } else if (e.target.closest(".borrar-bq")) {
+    if (!confirm(`¿Quitar «${b.titulo}» (${b.inicio}–${b.fin}) del plan?${b.evento_id ? " También se quitará de Google Calendar." : ""}`)) return;
+    try {
+      estudio = await api(`/api/estudio/bloques/${encodeURIComponent(id)}`, undefined, "DELETE");
+      guardar("estudio", estudio);
+      toast(estudio.aviso || "Bloque quitado");
+    } catch (err) { toast(err.message); }
+    pintarEstudio();
+  }
+});
+$("#est-prioridad").addEventListener("click", (e) => {
+  const c = e.target.closest("[data-p]"); if (!c) return;
+  estPrioridad = c.dataset.p;
+  $$("#est-prioridad .chip").forEach((x) => x.classList.toggle("on", x === c));
+  pintarEstudio();
+});
+$("#est-periodo").addEventListener("click", (e) => {
+  const c = e.target.closest("[data-r]"); if (!c) return;
+  estPeriodo = c.dataset.r;
+  $$("#est-periodo .chip").forEach((x) => x.classList.toggle("on", x === c));
+  pintarEstudio();
+});
+
 // ---------------------------------------------------------------- pestañas (celular)
 
 function irA(vista) {
@@ -980,13 +1120,14 @@ function irA(vista) {
   $$("#tabs button, #nav button").forEach((b) => b.classList.toggle("on", b.dataset.vista === vista));
   guardar("vista", vista);
   window.scrollTo({ top: 0 });
+  if (vista === "estudio") { pintarEstudio(); cargarEstudio(); }
 }
 ["#tabs", "#nav"].forEach((sel) => $(sel).addEventListener("click", (e) => {
   const b = e.target.closest("button");
   if (b) irA(b.dataset.vista);
 }));
 
-$$(".js-recargar").forEach((b) => b.onclick = () => { toast("Actualizando…"); cargar(true); });
+$$(".js-recargar").forEach((b) => b.onclick = () => { toast("Actualizando…"); cargar(true); if (leer("vista", "hoy") === "estudio") cargarEstudio(); });
 
 // ---------------------------------------------------------------- inicio
 
@@ -995,4 +1136,5 @@ pintarVozSalida();
 botonPomo("empezar");
 pintarReloj();
 irA(leer("vista", "hoy"));
+if (leer("vista", "hoy") !== "estudio") cargarEstudio();
 cargar();

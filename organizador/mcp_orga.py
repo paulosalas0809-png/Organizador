@@ -446,6 +446,141 @@ def quitar_meta(a: dict) -> str:
     raise ErrorUsuario("No encontré esa meta. Usa ver_metas para ver los ids.")
 
 
+# ---------------------------------------------------------------- plan de estudio
+
+
+def _plan():
+    from .estudio import PlanEstudio
+    return PlanEstudio(_w().cfg.carpeta_datos)
+
+
+def _evento_de_bloque(w, g, b: dict, materias: dict) -> tuple[str, datetime, datetime, str]:
+    d = date.fromisoformat(b["fecha"])
+    ini = datetime.combine(d, datetime.strptime(b["inicio"], "%H:%M").time(), w.cfg.zona)
+    fin = datetime.combine(d, datetime.strptime(b["fin"], "%H:%M").time(), w.cfg.zona)
+    m = materias.get(b.get("materia_id"))
+    titulo = f"📚 {m['corto']} · {b['titulo']}" if m else f"📚 {b['titulo']}"
+    return titulo, ini, fin, f"Prioridad {b['prioridad']} · Plan de estudio de Orga"
+
+
+def ver_plan_estudio(a: dict) -> str:
+    w = _w()
+    hoy = w.ahora().date()
+    desde = _fecha(a["desde"], "desde").isoformat() if a.get("desde") else None
+    return _plan().texto(hoy, desde=desde, dias_semana=w.DIAS)
+
+
+def guardar_materia(a: dict) -> str:
+    from .estudio import ErrorEstudio
+    try:
+        m, nueva = _plan().guardar_materia(a)
+    except ErrorEstudio as e:
+        raise ErrorUsuario(str(e)) from None
+    extra = (f", examen {m['examen']}" if m["examen"] else "") + (f", meta {m['horas_objetivo']:g} h" if m["horas_objetivo"] else "")
+    return f"Materia {'creada' if nueva else 'actualizada'}: «{m['nombre']}» («{m['corto']}», prioridad {m['prioridad']}{extra}, id={m['id']})."
+
+
+def quitar_materia(a: dict) -> str:
+    from .estudio import ErrorEstudio
+    try:
+        m, quitados = _plan().quitar_materia(a.get("materia", ""), bool(a.get("borrar_bloques")))
+    except ErrorEstudio as e:
+        raise ErrorUsuario(str(e)) from None
+    return f"Materia «{m['nombre']}» quitada." + (f" También borré sus {len(quitados)} bloques." if quitados else "") + _quitar_de_calendario(quitados)
+
+
+def _quitar_de_calendario(bloques: list[dict]) -> str:
+    con_evento = [b for b in bloques if b.get("evento_id")]
+    if not con_evento:
+        return ""
+    from googleapiclient.errors import HttpError
+
+    from .google_api import EscrituraDesactivada
+    w = _w()
+    try:
+        g = w.google()
+        for b in con_evento:
+            try:
+                g.borrar_evento_organizador(b["evento_id"])
+            except HttpError as e:
+                if e.status_code not in (404, 410):
+                    raise
+        return f" Quité {len(con_evento)} de tu Google Calendar."
+    except (EscrituraDesactivada, PermissionError, HttpError):
+        return f" Ojo: {len(con_evento)} seguían en Google Calendar y no pude quitarlos (cambios en Calendar desactivados o Google desconectado)."
+
+
+def crear_bloques_estudio(a: dict) -> str:
+    from .estudio import ErrorEstudio
+    from .google_api import EscrituraDesactivada, leer_permisos
+    w = _w()
+    plan = _plan()
+    try:
+        nuevos, reemplazados, cruces = plan.agregar_bloques(a.get("bloques") or [], a.get("notas_dia") or [], bool(a.get("reemplazar_dias")))
+    except ErrorEstudio as e:
+        raise ErrorUsuario(str(e)) from None
+    estudio_ = [b for b in nuevos if b["tipo"] == "estudio"]
+    total = sum(plan.minutos(b) for b in estudio_)
+    duracion = f"{total // 60} h {total % 60:02d}" if total % 60 else f"{total // 60} h"
+    texto = f"Guardé {len(nuevos)} bloques en la sección Estudio de Orga ({len(estudio_)} de estudio, {duracion} en total)."
+    if reemplazados:
+        texto += f" Reemplacé {len(reemplazados)} bloques que había en esos días." + _quitar_de_calendario(reemplazados)
+    if cruces:
+        texto += " OJO, se cruzan: " + "; ".join(cruces) + "."
+    if a.get("poner_en_calendario") and estudio_:
+        if not leer_permisos(w.cfg)["calendar"]:
+            texto += " No los puse en Google Calendar porque el usuario desactivó los cambios en Calendar (candado de Orga). Explícaselo."
+        else:
+            from googleapiclient.errors import HttpError
+            materias = {m["id"]: m for m in plan.cargar()["materias"]}
+            puestos = 0
+            try:
+                g = w.google()
+                for b in estudio_:
+                    plan.poner_evento(b["id"], g.crear_bloque(*_evento_de_bloque(w, g, b, materias)))
+                    puestos += 1
+                texto += f" También puse {puestos} en Google Calendar."
+            except (EscrituraDesactivada, PermissionError, HttpError):
+                texto += (f" Puse {puestos} de {len(estudio_)} en Google Calendar: Orga perdió la conexión con Google o Calendar no respondió. "
+                          "El plan sí quedó guardado en Orga; pide al usuario abrir Orga y pulsar «Conectar Google».")
+    return texto
+
+
+def editar_bloque_estudio(a: dict) -> str:
+    from googleapiclient.errors import HttpError
+
+    from .estudio import ErrorEstudio
+    from .google_api import EscrituraDesactivada
+    w = _w()
+    plan = _plan()
+    try:
+        antes, b = plan.editar_bloque(a.get("id", ""), {k: v for k, v in a.items() if k != "id"})
+    except ErrorEstudio as e:
+        raise ErrorUsuario(str(e)) from None
+    texto = f"Bloque actualizado: {b['fecha']} {b['inicio']}-{b['fin']} «{b['titulo']}» (prioridad {b['prioridad']}" + (", hecho" if b["hecho"] else "") + ")."
+    cambio_evento = any(antes[k] != b[k] for k in ("fecha", "inicio", "fin", "titulo", "materia_id", "prioridad"))
+    if b.get("evento_id") and cambio_evento:
+        try:
+            g = w.google()
+            titulo, ini, fin, nota = _evento_de_bloque(w, g, b, {m["id"]: m for m in plan.cargar()["materias"]})
+            g.editar_evento(b["evento_id"], titulo=titulo, inicio=ini, fin=fin, descripcion=nota)
+            texto += " También lo actualicé en Google Calendar."
+        except (EscrituraDesactivada, PermissionError, HttpError, LookupError):
+            texto += " Ojo: no pude actualizarlo en Google Calendar (cambios desactivados o el evento ya no existe)."
+    return texto
+
+
+def borrar_bloques_estudio(a: dict) -> str:
+    from .estudio import ErrorEstudio
+    if a.get("todo") and not a.get("confirmado"):
+        raise ErrorUsuario("Vas a borrar TODO el plan de estudio. Pide confirmación al usuario y repite con confirmado=true.")
+    try:
+        quitados = _plan().borrar_bloques(ids=a.get("ids"), fecha=a.get("fecha"), materia=a.get("materia"), todo=bool(a.get("todo")))
+    except ErrorEstudio as e:
+        raise ErrorUsuario(str(e)) from None
+    return f"Borré {len(quitados)} bloques del plan de estudio." + _quitar_de_calendario(quitados)
+
+
 def _p(tipo: str, desc: str) -> dict:
     return {"type": tipo, "description": desc}
 
@@ -507,6 +642,43 @@ HERRAMIENTAS = {
                          "para_otro_dia": {"type": "array", "items": {"type": "string"}, "description": "Tareas que no entraron"},
                          "poner_en_calendario": _p("boolean", "true para crear también los bloques en Google Calendar")},
                         ["bloques"], ESCRITURA),
+    "ver_plan_estudio": (ver_plan_estudio, "Plan de estudio de la sección «Estudio» de Orga: materias (prioridad, examen, horas planificadas y hechas) y bloques por día con sus ids.",
+                         {"desde": _p("string", "Mostrar bloques desde esta fecha AAAA-MM-DD (por defecto hoy)")}, [], SOLO_LECTURA),
+    "guardar_materia": (guardar_materia, "Crea una materia del plan de estudio, o actualiza la que tenga ese nombre (prioridad, examen, meta de horas, nombre corto).",
+                        {"nombre": _p("string", "Nombre completo, p. ej. «Final Econometría»"),
+                         "corto": _p("string", "Etiqueta corta para los bloques, p. ej. «Final Eco» (máx. 18 letras)"),
+                         "prioridad": {"type": "string", "enum": ["alta", "media", "baja"], "description": "Prioridad de la materia"},
+                         "examen": _p("string", "Fecha del examen o entrega AAAA-MM-DD (opcional; vacío para quitarla)"),
+                         "horas_objetivo": _p("number", "Horas de estudio que quiere dedicarle (opcional)"),
+                         "nombre_nuevo": _p("string", "Para renombrar la materia (opcional)")}, ["nombre"], ESCRITURA),
+    "quitar_materia": (quitar_materia, "Quita una materia del plan de estudio.",
+                       {"materia": _p("string", "Nombre, nombre corto o id"), "borrar_bloques": _p("boolean", "true para borrar también sus bloques")},
+                       ["materia"], {**ESCRITURA, "destructiveHint": True}),
+    "crear_bloques_estudio": (crear_bloques_estudio, "Crea bloques de estudio (y descansos) en la sección «Estudio» de Orga. Antes revisa ver_agenda para no chocar con clases. "
+                              "Reparte más tiempo a la prioridad alta y a lo que tiene examen más cerca; bloques de 45-120 min con descansos.",
+                              {"bloques": {"type": "array", "description": "Bloques en orden",
+                                           "items": {"type": "object", "properties": {
+                                               "fecha": _p("string", "AAAA-MM-DD"), "inicio": _p("string", "HH:MM"), "fin": _p("string", "HH:MM"),
+                                               "materia": _p("string", "Nombre, nombre corto o id de la materia (no hace falta en descansos)"),
+                                               "titulo": _p("string", "Qué hacer: «Ejercicios tipo examen»"),
+                                               "tipo": {"type": "string", "enum": ["estudio", "descanso"]},
+                                               "prioridad": {"type": "string", "enum": ["alta", "media", "baja"], "description": "Si se omite, usa la de la materia"}},
+                                               "required": ["fecha", "inicio", "fin"]}},
+                               "notas_dia": {"type": "array", "description": "Nota corta por día, p. ej. «Día libre, más carga»",
+                                             "items": {"type": "object", "properties": {"fecha": _p("string", "AAAA-MM-DD"), "nota": _p("string", "Nota")},
+                                                       "required": ["fecha", "nota"]}},
+                               "reemplazar_dias": _p("boolean", "true para borrar antes los bloques que ya había en esos días"),
+                               "poner_en_calendario": _p("boolean", "true para crear también los bloques de estudio en Google Calendar")},
+                              ["bloques"], ESCRITURA),
+    "editar_bloque_estudio": (editar_bloque_estudio, "Edita un bloque del plan de estudio (horario, fecha, título, materia, prioridad) o lo marca como hecho. Solo envía lo que cambia.",
+                              {"id": _p("string", "id del bloque (de ver_plan_estudio)"), "fecha": _p("string", "AAAA-MM-DD"), "inicio": _p("string", "HH:MM"),
+                               "fin": _p("string", "HH:MM"), "titulo": _p("string", "Nuevo título"), "materia": _p("string", "Nombre o id de la materia"),
+                               "prioridad": {"type": "string", "enum": ["alta", "media", "baja"]}, "hecho": _p("boolean", "true si ya lo estudió")},
+                              ["id"], ESCRITURA),
+    "borrar_bloques_estudio": (borrar_bloques_estudio, "Borra bloques del plan de estudio por ids, por fecha, por materia, o todo el plan (todo=true necesita confirmado=true).",
+                               {"ids": {"type": "array", "items": {"type": "string"}, "description": "ids de bloques"}, "fecha": _p("string", "AAAA-MM-DD"),
+                                "materia": _p("string", "Nombre o id"), "todo": _p("boolean", "Borrar todo el plan"),
+                                "confirmado": _p("boolean", "true solo si el usuario ya confirmó borrar todo")}, [], {**ESCRITURA, "destructiveHint": True}),
     "marcar_cumplido": (marcar_cumplido, "Marca (o desmarca) un evento de hoy como cumplido en la agenda de Orga.",
                         {"id": _p("string", "id del evento (de ver_agenda)"), "hecho": _p("boolean", "false para desmarcar")}, ["id"], ESCRITURA),
     "agregar_meta": (agregar_meta, "Guarda una meta personal nueva.", {"meta": _p("string", "La meta"), "porque": _p("string", "Por qué le importa (opcional)")},
@@ -569,7 +741,7 @@ def _atender(m: dict) -> dict | None:
         return _respuesta(mid, {
             "protocolVersion": pedida if pedida in VERSIONES else VERSIONES[0],
             "capabilities": {"tools": {"listChanged": False}},
-            "serverInfo": {"name": "orga", "title": "Orga — tu organizador", "version": "1.1.0"},
+            "serverInfo": {"name": "orga", "title": "Orga — tu organizador", "version": "1.2.0"},
             "instructions": INSTRUCCIONES,
         })
     if metodo == "ping":

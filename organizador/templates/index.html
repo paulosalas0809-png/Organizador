@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=14">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=15">
 </head>
 <body>
 
@@ -50,6 +50,7 @@
   <symbol id="i-flecha" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
   <symbol id="i-campana" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
   <symbol id="i-caja" viewBox="0 0 24 24"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></symbol>
+  <symbol id="i-libro" viewBox="0 0 24 24"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></symbol>
   <symbol id="i-candado" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
   <symbol id="i-buscar" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
   <symbol id="i-logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="url(#grad-marca)" stroke="none"/><path d="M9.5 16.5l4.2 4.2 8.8-9.4" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -68,6 +69,7 @@
       <div class="grupo">Organización</div>
       <button data-vista="metas"><svg class="ic"><use href="#i-meta"/></svg>Metas</button>
       <button data-vista="tareas"><svg class="ic"><use href="#i-tareas"/></svg>Tareas<i class="conteo" id="nav-tareas"></i></button>
+      <button data-vista="estudio"><svg class="ic"><use href="#i-libro"/></svg>Estudio<i class="conteo" id="nav-estudio"></i></button>
       <div class="grupo">Concentración</div>
       <button data-vista="enfoque"><svg class="ic"><use href="#i-reloj"/></svg>Enfoque</button>
     </nav>
@@ -279,6 +281,30 @@
         </div>
       </section>
 
+      <!-- ============ ESTUDIO ============ -->
+      <section class="vista estudio" data-vista="estudio">
+        <div class="page-head">
+          <div><p class="eyebrow" id="est-sub">&nbsp;</p><h1>Plan de estudio</h1></div>
+          <div class="filtros" id="est-prioridad" role="group" aria-label="Filtrar por prioridad">
+            <button class="chip on" data-p="">Todas</button>
+            <button class="chip" data-p="alta"><i class="pdot alta"></i>Alta</button>
+            <button class="chip" data-p="media"><i class="pdot media"></i>Media</button>
+            <button class="chip" data-p="baja"><i class="pdot baja"></i>Baja</button>
+          </div>
+        </div>
+        <div class="est-materias" id="est-materias"></div>
+        <div class="card est-plan">
+          <div class="est-cabecera">
+            <div class="est-progreso"><span id="est-prog-txt">Progreso</span><div class="est-barra"><i id="est-prog-barra"></i></div></div>
+            <div class="filtros" id="est-periodo" role="group" aria-label="Periodo">
+              <button class="chip on" data-r="prox">Próximos</button>
+              <button class="chip" data-r="ant">Anteriores</button>
+            </div>
+          </div>
+          <div id="est-dias"></div>
+        </div>
+      </section>
+
       <!-- ============ ENFOQUE ============ -->
       <section class="vista estrecha" data-vista="enfoque">
         <div class="page-head">
@@ -330,6 +356,7 @@
   <button data-vista="agente"><svg class="ic"><use href="#i-chispa"/></svg>Orga</button>
   <button data-vista="metas"><svg class="ic"><use href="#i-meta"/></svg>Metas</button>
   <button data-vista="tareas"><svg class="ic"><use href="#i-tareas"/></svg>Tareas</button>
+  <button data-vista="estudio"><svg class="ic"><use href="#i-libro"/></svg>Estudio</button>
   <button data-vista="enfoque"><svg class="ic"><use href="#i-reloj"/></svg>Enfoque</button>
 </nav>
 
@@ -351,6 +378,6 @@
   </div>
 </div>
 <div class="toast" id="toast"></div>
-<script src="{{ url_for('static', filename='app.js') }}?v=14"></script>
+<script src="{{ url_for('static', filename='app.js') }}?v=15"></script>
 </body>
 </html>
