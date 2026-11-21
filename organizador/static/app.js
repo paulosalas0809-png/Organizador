@@ -40,6 +40,7 @@ async function api(ruta, cuerpo, metodo) {
   if (r.status === 401) { location.href = "/entrar"; throw new Error("Sesión cerrada"); }
   const j = await r.json().catch(() => ({}));
   if (j.google_desconectado) { mostrarConectar(); }
+  if (j.escritura_desactivada && datos && datos.permisos) { datos.permisos[j.escritura_desactivada] = false; pintarPermisos(); }
   if (!r.ok) throw new Error(j.error || "Algo salió mal");
   return j;
 }
@@ -172,7 +173,46 @@ function pintarDona() {
     <div class="leyenda">${partes.map((p) => `<div><i style="background:${p.c}"></i><span>${p.n}</span><b>${p.v}</b></div>`).join("")}</div>`;
 }
 
+// ---------------------------------------------------------------- permisos en Google (candado)
+
+function pintarPermisos() {
+  const p = (datos && datos.permisos) || { calendar: true, tasks: true };
+  $("#perm-calendar").checked = p.calendar !== false;
+  $("#perm-tasks").checked = p.tasks !== false;
+  const bloqueado = p.calendar === false || p.tasks === false;
+  $("#punto-perm").hidden = !bloqueado;
+  $("#btn-permisos").title = bloqueado ? "Hay cambios en Google desactivados" : "Permisos de Orga en Google";
+}
+
+function abrirPermisos(abrir) {
+  $("#velo-permisos").hidden = !abrir;
+  if (abrir) { pintarPermisos(); $("#perm-calendar").focus(); } else { $("#btn-permisos").focus(); }
+}
+
+$("#btn-permisos").addEventListener("click", () => abrirPermisos(true));
+$("#perm-cerrar").addEventListener("click", () => abrirPermisos(false));
+$("#velo-permisos").addEventListener("click", (e) => { if (e.target.id === "velo-permisos") abrirPermisos(false); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#velo-permisos").hidden) abrirPermisos(false); });
+for (const servicio of ["calendar", "tasks"]) {
+  $("#perm-" + servicio).addEventListener("change", async (e) => {
+    const caja = e.target, valor = caja.checked, nombre = servicio === "calendar" ? "Google Calendar" : "Google Tasks";
+    caja.disabled = true;
+    try {
+      const r = await api("/api/permisos", { [servicio]: valor });
+      if (datos) { datos.permisos = r.permisos; guardar("datos-" + hoyClave(), datos); }
+      toast(valor ? `Orga puede volver a hacer cambios en ${nombre}` : `Listo: Orga ya no hará cambios en ${nombre}`);
+    } catch (err) {
+      caja.checked = !valor;
+      toast(err.message);
+    } finally {
+      caja.disabled = false;
+      pintarPermisos();
+    }
+  });
+}
+
 function pintarTodo() {
+  pintarPermisos();
   pintarSemana();
   pintarDona();
   pintarProximos();

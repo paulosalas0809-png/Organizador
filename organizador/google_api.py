@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
+from functools import wraps
 from datetime import date, datetime, time, timedelta
 
 from google.auth.transport.requests import Request
@@ -22,6 +24,49 @@ SCOPES = [
 
 # Marca para reconocer los bloques creados por el Organizador.
 ETIQUETA = "organizador"
+
+
+NOMBRES = {"calendar": "Google Calendar", "tasks": "Google Tasks"}
+
+
+class EscrituraDesactivada(RuntimeError):
+    """El usuario desactivó en Orga los cambios en Calendar o en Tasks."""
+
+    def __init__(self, servicio: str):
+        self.servicio = servicio
+        super().__init__(f"Los cambios en {NOMBRES[servicio]} están desactivados en Orga. "
+                         "Actívalos con el botón del candado (arriba en Orga) si quieres permitirlos.")
+
+
+def leer_permisos(cfg: Config) -> dict:
+    """Qué puede modificar Orga (y sus agentes). Por defecto, todo permitido."""
+    archivo = cfg.carpeta_datos / "permisos.json"
+    datos = {}
+    if archivo.exists():
+        try:
+            datos = json.loads(archivo.read_text())
+        except ValueError:
+            datos = {}
+    return {s: bool(datos.get(s, True)) for s in NOMBRES}
+
+
+def guardar_permisos(cfg: Config, cambios: dict) -> dict:
+    permisos = leer_permisos(cfg)
+    permisos.update({s: bool(v) for s, v in cambios.items() if s in NOMBRES})
+    (cfg.carpeta_datos / "permisos.json").write_text(json.dumps(permisos))
+    return permisos
+
+
+def _escribe(servicio: str):
+    """Marca un método que modifica Google: se bloquea si el usuario lo desactivó."""
+    def decorador(metodo):
+        @wraps(metodo)
+        def envoltura(self, *a, **kw):
+            if not leer_permisos(self.cfg)[servicio]:
+                raise EscrituraDesactivada(servicio)
+            return metodo(self, *a, **kw)
+        return envoltura
+    return decorador
 
 
 @dataclass
@@ -158,6 +203,7 @@ class Google:
             por_dia[d] = [e for e in todos if e.inicio < fin_d and e.fin > ini_d]
         return por_dia
 
+    @_escribe("calendar")
     def borrar_evento_organizador(self, evento_id: str) -> bool:
         """Borra un evento solo si lo creó el Organizador (nunca toca tus eventos propios)."""
         e = self.calendar.events().get(calendarId=self.cfg.calendario_id, eventId=evento_id).execute()
@@ -177,6 +223,7 @@ class Google:
                     raise
         raise LookupError(evento_id)
 
+    @_escribe("calendar")
     def editar_evento(self, evento_id: str, titulo: str | None = None, inicio: datetime | None = None,
                       fin: datetime | None = None, descripcion: str | None = None) -> dict:
         """Cambia título, horario o descripción de un evento de cualquiera de tus calendarios."""
@@ -201,6 +248,7 @@ class Google:
             cuerpo["end"] = {"dateTime": nuevo_fin.isoformat(), "timeZone": str(self.cfg.zona)}
         return self.calendar.events().patch(calendarId=cal_id, eventId=evento_id, body=cuerpo).execute()
 
+    @_escribe("calendar")
     def borrar_evento(self, evento_id: str) -> str:
         """Borra un evento de cualquiera de tus calendarios. Devuelve su título."""
         cal_id, e = self._ubicar_evento(evento_id)
@@ -214,6 +262,7 @@ class Google:
             return False
         return e.get("extendedProperties", {}).get("private", {}).get(ETIQUETA) == "1"
 
+    @_escribe("calendar")
     def crear_bloque(self, titulo: str, inicio: datetime, fin: datetime, descripcion: str = "") -> str:
         cuerpo = {
             "summary": titulo,
@@ -226,6 +275,7 @@ class Google:
         evento = self.calendar.events().insert(calendarId=self.cfg.calendario_id, body=cuerpo).execute()
         return evento["id"]
 
+    @_escribe("calendar")
     def borrar_bloques_del_organizador(self, dia: date) -> int:
         """Borra los bloques que el Organizador creó ese día (para re-planificar)."""
         borrados = 0
@@ -271,11 +321,13 @@ class Google:
     def completar_tarea(self, tarea: Tarea) -> None:
         self.completar_tarea_id(tarea.lista_id, tarea.id)
 
+    @_escribe("tasks")
     def completar_tarea_id(self, lista_id: str, tarea_id: str) -> None:
         self.tasks.tasks().patch(
             tasklist=lista_id, task=tarea_id, body={"status": "completed"}
         ).execute()
 
+    @_escribe("tasks")
     def cambiar_fecha_tarea(self, lista_id: str, tarea_id: str, fecha: date | None) -> None:
         due = f"{fecha.isoformat()}T00:00:00.000Z" if fecha else None
         self.tasks.tasks().patch(tasklist=lista_id, task=tarea_id, body={"due": due}).execute()
@@ -308,24 +360,30 @@ class Google:
         items = self.tasks.tasklists().list(maxResults=100).execute().get("items", [])
         return [{"id": l["id"], "nombre": l.get("title", "")} for l in items]
 
+    @_escribe("tasks")
     def crear_lista(self, nombre: str) -> dict:
         l = self.tasks.tasklists().insert(body={"title": nombre}).execute()
         return {"id": l["id"], "nombre": l.get("title", "")}
 
+    @_escribe("tasks")
     def renombrar_lista(self, lista_id: str, nombre: str) -> None:
         self.tasks.tasklists().patch(tasklist=lista_id, body={"title": nombre}).execute()
 
+    @_escribe("tasks")
     def borrar_lista(self, lista_id: str) -> None:
         self.tasks.tasklists().delete(tasklist=lista_id).execute()
 
+    @_escribe("tasks")
     def editar_tarea(self, lista_id: str, tarea_id: str, titulo: str | None = None, notas: str | None = None) -> None:
         cuerpo = {k: v for k, v in (("title", titulo), ("notes", notas)) if v is not None}
         if cuerpo:
             self.tasks.tasks().patch(tasklist=lista_id, task=tarea_id, body=cuerpo).execute()
 
+    @_escribe("tasks")
     def borrar_tarea(self, lista_id: str, tarea_id: str) -> None:
         self.tasks.tasks().delete(tasklist=lista_id, task=tarea_id).execute()
 
+    @_escribe("tasks")
     def reabrir_tarea(self, lista_id: str, tarea_id: str) -> None:
         self.tasks.tasks().patch(tasklist=lista_id, task=tarea_id, body={"status": "needsAction", "completed": None}).execute()
 
@@ -342,6 +400,7 @@ class Google:
                                         date.fromisoformat(t["due"][:10]) if t.get("due") else None))
         return salida
 
+    @_escribe("tasks")
     def mover_tarea(self, lista_id: str, tarea_id: str, lista_destino: str) -> None:
         """Pasa una tarea a otro proyecto (lista), conservando título, notas y fecha."""
         t = self.tasks.tasks().get(tasklist=lista_id, task=tarea_id).execute()
@@ -349,6 +408,7 @@ class Google:
         self.tasks.tasks().insert(tasklist=lista_destino, body=cuerpo).execute()
         self.tasks.tasks().delete(tasklist=lista_id, task=tarea_id).execute()
 
+    @_escribe("tasks")
     def crear_tarea(self, titulo: str, vence: date | None = None, notas: str = "", lista_id: str | None = None) -> None:
         lista_id = lista_id or self.tasks.tasklists().list(maxResults=1).execute()["items"][0]["id"]
         cuerpo = {"title": titulo, "notes": notas}

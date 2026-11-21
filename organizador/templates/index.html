@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=13">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=14">
 </head>
 <body>
 
@@ -50,6 +50,7 @@
   <symbol id="i-flecha" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
   <symbol id="i-campana" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
   <symbol id="i-caja" viewBox="0 0 24 24"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></symbol>
+  <symbol id="i-candado" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
   <symbol id="i-buscar" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
   <symbol id="i-logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="url(#grad-marca)" stroke="none"/><path d="M9.5 16.5l4.2 4.2 8.8-9.4" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 </svg>
@@ -89,6 +90,7 @@
         <kbd>Enter</kbd>
       </form>
       <div class="top-acciones">
+        <button class="icon-btn" id="btn-permisos" title="Permisos de Orga en Google" aria-haspopup="dialog"><svg class="ic"><use href="#i-candado"/></svg><i class="punto-perm" id="punto-perm" hidden></i></button>
         <button class="icon-btn js-recargar" title="Actualizar"><svg class="ic"><use href="#i-recargar"/></svg></button>
         <a class="icon-btn solo-cel" href="/salir" title="Cerrar sesión"><svg class="ic"><use href="#i-salir"/></svg></a>
         <div class="perfil"><span class="inicial" id="perfil-inicial">O</span><span class="perfil-txt"><b id="perfil-nombre">Mi cuenta</b><small>Personal</small></span></div>
@@ -331,7 +333,24 @@
   <button data-vista="enfoque"><svg class="ic"><use href="#i-reloj"/></svg>Enfoque</button>
 </nav>
 
+<div class="velo" id="velo-permisos" hidden>
+  <div class="card panel-permisos" role="dialog" aria-modal="true" aria-labelledby="perm-titulo">
+    <div class="card-head"><div><h2 id="perm-titulo">Permisos en Google</h2><span class="sub">Qué puede cambiar Orga por ti</span></div>
+      <button class="icon-btn fantasma chico" id="perm-cerrar" title="Cerrar"><svg class="ic"><use href="#i-x"/></svg></button></div>
+    <label class="perm-fila">
+      <span class="perm-ico"><svg class="ic"><use href="#i-calendario"/></svg></span>
+      <span class="perm-txt"><b>Google Calendar</b><small>Poner horarios, crear, mover y borrar eventos</small></span>
+      <input type="checkbox" class="interruptor" id="perm-calendar" role="switch">
+    </label>
+    <label class="perm-fila">
+      <span class="perm-ico"><svg class="ic"><use href="#i-tareas"/></svg></span>
+      <span class="perm-txt"><b>Google Tasks</b><small>Crear, completar, editar y borrar tareas y proyectos</small></span>
+      <input type="checkbox" class="interruptor" id="perm-tasks" role="switch">
+    </label>
+    <p class="perm-nota">Apagado, Orga solo puede <b>leer</b>: ni los botones, ni el agente de Orga, ni tu chat de Claude podrán hacer cambios ahí. Tus metas y tu horario dentro de Orga siguen funcionando.</p>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
-<script src="{{ url_for('static', filename='app.js') }}?v=13"></script>
+<script src="{{ url_for('static', filename='app.js') }}?v=14"></script>
 </body>
 </html>

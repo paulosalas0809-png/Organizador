@@ -6,6 +6,7 @@ herramienta usar (crear tarea, mover evento, etc.) y el SDK las ejecuta automát
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import uuid
@@ -18,7 +19,7 @@ from google.genai import types
 from pydantic import BaseModel, Field
 
 from .config import Config
-from .google_api import Google, Tarea, huecos_libres
+from .google_api import NOMBRES, EscrituraDesactivada, Google, Tarea, huecos_libres, leer_permisos
 from .planificador import DIAS, PlanDelDia
 
 MODELOS = [m for m in [os.getenv("GEMINI_MODEL", "").strip(), "gemini-flash-latest", "gemini-3.5-flash", "gemini-2.5-flash"] if m]
@@ -104,6 +105,9 @@ def contexto_general(g: Google, cfg: Config, ahora: datetime, tareas: list[Tarea
     lineas = [
         f"AHORA: {_fecha_larga(hoy)}, {ahora:%H:%M}. Zona horaria {cfg.zona}.",
         f"Horario productivo del usuario: {cfg.hora_inicio:%H:%M} a {cfg.hora_fin:%H:%M}.",
+        *[f"IMPORTANTE: el usuario DESACTIVÓ los cambios en {NOMBRES[s]}. No intentes modificarlo; "
+          "si te pide algo ahí, explícale que debe activarlo con el botón del candado arriba en Orga."
+          for s, ok in leer_permisos(cfg).items() if not ok],
         "",
         "PRÓXIMOS 7 DÍAS (usa estas fechas exactas):",
     ]
@@ -246,8 +250,17 @@ class Agente:
                 return "ok"
             return "error: no encontré esa meta"
 
-        return [crear_tarea, completar_tarea, reprogramar_tarea, crear_bloque_calendario,
-                borrar_bloque_calendario, agregar_meta, quitar_meta]
+        def protegida(funcion):
+            @functools.wraps(funcion)
+            def envoltura(*a, **kw):
+                try:
+                    return funcion(*a, **kw)
+                except EscrituraDesactivada as e:
+                    return f"error: {e}"
+            return envoltura
+
+        return [protegida(f) for f in (crear_tarea, completar_tarea, reprogramar_tarea, crear_bloque_calendario,
+                                        borrar_bloque_calendario, agregar_meta, quitar_meta)]
 
     def _contexto(self) -> str:
         hoy = self.ahora.date()

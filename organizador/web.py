@@ -23,7 +23,7 @@ from googleapiclient.errors import HttpError
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import cargar_config
-from .google_api import SCOPES, Google, Tarea, huecos_libres
+from .google_api import SCOPES, EscrituraDesactivada, Google, Tarea, guardar_permisos, huecos_libres, leer_permisos
 from .agente import Agente, ErrorIA, Metas, gemini_disponible, hablar, motivacion_del_dia, plan_con_gemini, transcribir
 from .planificador import DIAS, construir_contexto, conversar, generar_plan, plan_sin_ia
 
@@ -162,6 +162,8 @@ def requiere_login(f):
             return jsonify(error="No pude conectarme con Claude."), 502
         except ErrorIA as e:
             return jsonify(error=str(e)), 503
+        except EscrituraDesactivada as e:
+            return jsonify(error=str(e), escritura_desactivada=e.servicio), 403
         except RuntimeError as e:
             return jsonify(error=str(e)), 502
 
@@ -308,6 +310,7 @@ def api_hoy():
         "ia": ia_disponible(),
         "agente": gemini_disponible(),
         "google": False,
+        "permisos": leer_permisos(cfg),
     }
     creds = credenciales_google()
     if creds is None:
@@ -407,6 +410,18 @@ def _hora_valida(texto, defecto):
         return defecto
 
 
+@app.get("/api/permisos")
+@requiere_login
+def api_permisos():
+    return jsonify(permisos=leer_permisos(cfg))
+
+
+@app.post("/api/permisos")
+@requiere_login
+def api_permisos_guardar():
+    return jsonify(permisos=guardar_permisos(cfg, request.json or {}))
+
+
 @app.post("/api/plan")
 @requiere_login
 def api_plan():
@@ -427,7 +442,7 @@ def api_plan():
 
     g = google()
     eventos, tareas = datos_del_dia(g, dia)
-    if deberes and datos.get("guardar"):
+    if deberes and datos.get("guardar") and leer_permisos(cfg)["tasks"]:
         existentes = {t.titulo.lower() for t in tareas}
         for d in deberes:
             if d.lower() not in existentes:

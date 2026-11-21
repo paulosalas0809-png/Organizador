@@ -390,6 +390,10 @@ def guardar_horario(a: dict) -> str:
     }
     w.archivo_plan(d).write_text(json.dumps(plan, ensure_ascii=False))
     texto = f"Horario guardado en Orga para el {d.isoformat()} ({len(bloques)} bloques)."
+    from .google_api import leer_permisos
+    if a.get("poner_en_calendario") and not leer_permisos(w.cfg)["calendar"]:
+        return texto + (" No lo puse en Google Calendar porque el usuario desactivó los cambios en Calendar en Orga "
+                        "(botón del candado). Explícaselo.")
     if a.get("poner_en_calendario"):
         g = w.google()
         g.borrar_bloques_del_organizador(d)
@@ -519,12 +523,16 @@ def _lista_herramientas() -> list[dict]:
 
 def _llamar(nombre: str, argumentos: dict) -> dict:
     from googleapiclient.errors import HttpError
+
+    from .google_api import EscrituraDesactivada
     if nombre not in HERRAMIENTAS:
         raise KeyError(nombre)
     try:
         texto, error = HERRAMIENTAS[nombre][0](argumentos or {}), False
     except ErrorUsuario as e:
         texto, error = str(e), True
+    except EscrituraDesactivada as e:
+        texto, error = (f"{e} Explícale esto al usuario; no reintentes.", True)
     except PermissionError:
         texto, error = ("Orga perdió la conexión con Google. Pide al usuario que abra Orga y pulse «Conectar Google» "
                         "(pasa cada 7 días mientras la app de Google esté en modo de prueba)."), True
